@@ -1,0 +1,61 @@
+version: '3.8'
+
+# Hanzo Stack - Complete Infrastructure
+# This is the main orchestration file that includes all services
+
+include:
+  # Core infrastructure services
+  - ./compose/core/database.yml
+  - ./compose/core/cache.yml
+  - ./compose/core/storage.yml
+  - ./compose/core/search.yml
+  - ./compose/core/analytics.yml
+  
+  # AI infrastructure
+  - ./compose/ai/llm-gateway.yml
+  - ./compose/ai/chat.yml
+  - ./compose/ai/mcp.yml
+  - ./compose/ai/agent.yml
+  - ./compose/ai/operative.yml
+  
+  # Application services
+  - ./compose/apps/search.yml
+  - ./compose/apps/flow.yml
+  - ./compose/apps/studio.yml
+  - ./compose/apps/suite.yml
+  
+  # Developer tools
+  - ./compose/dev/api.yml
+  - ./compose/dev/cloud.yml
+  - ./compose/dev/iam.yml
+  - ./compose/dev/kms.yml
+  
+  # Business services
+  - ./compose/business/financials.yml
+  - ./compose/business/captable.yml
+  - ./compose/business/team.yml
+  
+  # Customer platforms
+  - ./compose/customers/az2.yml
+  
+  # Monitoring
+  - ./compose/monitoring/prometheus.yml
+  - ./compose/monitoring/grafana.yml
+  - ./compose/monitoring/jaeger.yml
+
+networks:
+  hanzo:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+volumes:
+  postgres_data:
+  redis_data:
+  minio_data:
+  mongodb_data:
+  meilisearch_data:
+  clickhouse_data:
+  prometheus_data:
+  grafana_data:

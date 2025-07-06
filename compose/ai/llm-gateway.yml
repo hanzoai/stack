@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  llm-gateway:
+    image: ghcr.io/hanzoai/llm:latest
+    container_name: hanzo-llm-gateway
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=${ROUTER_DATABASE_URL}
+      - REDIS_URL=${ROUTER_REDIS_URL}
+      - MASTER_KEY=${ROUTER_MASTER_KEY}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - COHERE_API_KEY=${COHERE_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - PORT=4000
+    ports:
+      - "4000:4000"
+    networks:
+      - hanzo
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
