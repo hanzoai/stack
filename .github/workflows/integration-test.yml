@@ -28,28 +28,8 @@ jobs:
       
     - name: Create test environment
       run: |
-        cp .env.example .env
-        
-        # Set test-specific values
-        cat >> .env << EOF
-        
-        # Test Configuration
-        ENVIRONMENT=test
-        TEST_MODE=true
-        
-        # Mock external services
-        MOCK_EXTERNAL_APIS=true
-        MOCK_OPENAI=true
-        MOCK_ANTHROPIC=true
-        MOCK_STRIPE=true
-        MOCK_GITHUB=true
-        MOCK_GOOGLE_OAUTH=true
-        
-        # Use test databases
-        POSTGRES_DB=hanzo_test
-        MONGODB_DATABASE=hanzo_test
-        CLICKHOUSE_DATABASE=hanzo_test
-        EOF
+        # Use test-specific environment file
+        cp .env.test .env
         
     - name: Build test containers
       run: |

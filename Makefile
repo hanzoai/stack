@@ -146,14 +146,29 @@ dev: check-env
 # Run tests
 .PHONY: test
 test:
-	@echo "$(GREEN)Running all tests...$(NC)"
-	@cd repos && \
-	for repo in */; do \
-		if [ -f "$$repo/Makefile" ] && grep -q "test:" "$$repo/Makefile"; then \
-			echo "$(YELLOW)Testing $$repo...$(NC)"; \
-			cd "$$repo" && make test && cd ..; \
-		fi; \
-	done
+	@echo "$(GREEN)Running Hanzo Stack tests...$(NC)"
+	@./test.sh all
+
+# Run specific test types
+.PHONY: test-unit
+test-unit:
+	@./test.sh unit
+
+.PHONY: test-integration
+test-integration:
+	@./test.sh integration
+
+.PHONY: test-load
+test-load:
+	@./test.sh load
+
+.PHONY: test-security
+test-security:
+	@./test.sh security
+
+.PHONY: test-quick
+test-quick:
+	@./test.sh quick
 
 # Build all services
 .PHONY: build
