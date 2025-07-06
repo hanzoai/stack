@@ -1,0 +1,149 @@
+version: '3.8'
+
+# Test-specific overrides and additions
+services:
+  # Override services to use test configurations
+  postgres:
+    environment:
+      - POSTGRES_DB=hanzo_test
+    volumes:
+      - ./test-data/postgres:/docker-entrypoint-initdb.d
+      
+  mongodb:
+    environment:
+      - MONGO_INITDB_DATABASE=hanzo_test
+    volumes:
+      - ./test-data/mongodb:/docker-entrypoint-initdb.d
+      
+  # Test runner container
+  integration-tests:
+    build:
+      context: ./tests
+      dockerfile: Dockerfile
+    volumes:
+      - ./tests:/tests
+      - ./scripts:/scripts
+    environment:
+      - API_URL=http://api:8000
+      - CLOUD_URL=http://cloud:3000
+      - CHAT_URL=http://chat:3081
+      - LLM_GATEWAY_URL=http://llm-gateway:4000
+      - SEARCH_URL=http://search:3000
+      - IAM_URL=http://iam:8000
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - MONGODB_HOST=mongodb
+      - MINIO_HOST=minio
+    networks:
+      - hanzo
+    depends_on:
+      - api
+      - cloud
+      - chat
+      - llm-gateway
+      - search
+      - iam
+      
+  # Database migration containers
+  api-migrate:
+    image: migrate/migrate
+    volumes:
+      - ./migrations/api:/migrations
+    command: [
+      "-path=/migrations",
+      "-database=postgres://hanzo:hanzo123@postgres:5432/hanzo_test?sslmode=disable",
+      "up"
+    ]
+    networks:
+      - hanzo
+    depends_on:
+      postgres:
+        condition: service_healthy
+        
+  cloud-migrate:
+    build:
+      context: ./repos/cloud
+      target: migration
+    environment:
+      - DATABASE_URL=postgresql://hanzo:hanzo123@postgres:5432/hanzo_test
+    command: ["pnpm", "--filter=web", "db:migrate"]
+    networks:
+      - hanzo
+    depends_on:
+      postgres:
+        condition: service_healthy
+        
+  iam-migrate:
+    build:
+      context: ./repos/iam
+      target: migration
+    environment:
+      - driverName=postgres
+      - dataSourceName=user=hanzo password=hanzo123 host=postgres port=5432 sslmode=disable dbname=hanzo_test
+    networks:
+      - hanzo
+    depends_on:
+      postgres:
+        condition: service_healthy
+        
+  # Seed data containers
+  api-seed:
+    build:
+      context: ./repos/api
+      target: seed
+    environment:
+      - DATABASE_URL=postgresql://hanzo:hanzo123@postgres:5432/hanzo_test
+      - REDIS_URL=redis://:hanzo123@redis:6379
+    command: ["python", "seed_test_data.py"]
+    networks:
+      - hanzo
+    depends_on:
+      - api-migrate
+      
+  cloud-seed:
+    build:
+      context: ./repos/cloud
+      target: seed
+    environment:
+      - DATABASE_URL=postgresql://hanzo:hanzo123@postgres:5432/hanzo_test
+      - CLICKHOUSE_HOST=clickhouse
+    command: ["pnpm", "--filter=shared", "db:seed"]
+    networks:
+      - hanzo
+    depends_on:
+      - cloud-migrate
+      
+  # Performance testing with k6
+  k6:
+    image: grafana/k6:latest
+    volumes:
+      - ./tests/k6:/scripts
+    networks:
+      - hanzo
+      
+  # Mock service for external dependencies
+  mock-llm-provider:
+    build:
+      context: ./mocks/llm-provider
+    ports:
+      - "8080:8080"
+    environment:
+      - MOCK_RESPONSES=true
+      - RESPONSE_DELAY_MS=100
+    networks:
+      - hanzo
+      
+  # Health check sidecar
+  health-monitor:
+    build:
+      context: ./monitoring/health
+    environment:
+      - SERVICES=postgres,redis,minio,mongodb,meilisearch,clickhouse,llm-gateway,chat,api,cloud,search,iam
+      - CHECK_INTERVAL=10s
+      - ALERT_WEBHOOK=${ALERT_WEBHOOK:-}
+    networks:
+      - hanzo
+    depends_on:
+      - postgres
+      - redis
+      - minio

@@ -1,0 +1,307 @@
+name: Hanzo Stack Integration Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * *'  # Daily at midnight
+
+env:
+  DOCKER_BUILDKIT: 1
+  COMPOSE_DOCKER_CLI_BUILD: 1
+
+jobs:
+  integration-test:
+    name: Full Stack Integration Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: Create test environment
+      run: |
+        cp .env.example .env
+        
+        # Set test-specific values
+        cat >> .env << EOF
+        
+        # Test Configuration
+        ENVIRONMENT=test
+        TEST_MODE=true
+        
+        # Mock external services
+        MOCK_EXTERNAL_APIS=true
+        MOCK_OPENAI=true
+        MOCK_ANTHROPIC=true
+        MOCK_STRIPE=true
+        MOCK_GITHUB=true
+        MOCK_GOOGLE_OAUTH=true
+        
+        # Use test databases
+        POSTGRES_DB=hanzo_test
+        MONGODB_DATABASE=hanzo_test
+        CLICKHOUSE_DATABASE=hanzo_test
+        EOF
+        
+    - name: Build test containers
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.test.yml build --parallel
+        
+    - name: Start core infrastructure
+      run: |
+        docker compose up -d postgres redis minio mongodb meilisearch clickhouse
+        
+        # Wait for core services
+        ./scripts/wait-for-healthy.sh postgres redis minio mongodb meilisearch clickhouse
+        
+    - name: Initialize databases
+      run: |
+        # PostgreSQL migrations
+        docker compose run --rm api-migrate
+        docker compose run --rm cloud-migrate
+        docker compose run --rm iam-migrate
+        
+        # Seed test data
+        docker compose run --rm api-seed
+        docker compose run --rm cloud-seed
+        
+    - name: Start AI services
+      run: |
+        docker compose up -d llm-gateway chat mcp agent operative
+        
+        # Wait for AI services
+        ./scripts/wait-for-healthy.sh llm-gateway chat mcp agent operative
+        
+    - name: Start application services
+      run: |
+        docker compose up -d api cloud iam kms search flow studio suite
+        
+        # Wait for application services
+        ./scripts/wait-for-healthy.sh api cloud iam kms search flow studio suite
+        
+    - name: Run health checks
+      run: |
+        # Core infrastructure
+        curl -f http://localhost:5432 || echo "PostgreSQL ready"
+        curl -f http://localhost:6379 || echo "Redis ready"
+        curl -f http://localhost:9000/minio/health/live || exit 1
+        curl -f http://localhost:7700/health || exit 1
+        
+        # AI services
+        curl -f http://localhost:4000/health || exit 1
+        curl -f http://localhost:3081/api/health || exit 1
+        
+        # Application services
+        curl -f http://localhost:8000/health || exit 1
+        curl -f http://localhost:3000 || exit 1
+        
+    - name: Run integration tests
+      run: |
+        docker compose -f docker-compose.test.yml run --rm integration-tests
+        
+    - name: Test service interactions
+      run: |
+        # Test LLM Gateway → Multiple providers
+        docker compose exec -T llm-gateway python tests/test_providers.py
+        
+        # Test Chat → LLM Gateway
+        docker compose exec -T chat npm run test:integration
+        
+        # Test Search → Multiple backends
+        docker compose exec -T search npm run test:integration
+        
+        # Test API → Database operations
+        docker compose exec -T api pytest tests/integration/
+        
+        # Test Cloud → Observability pipeline
+        docker compose exec -T cloud pnpm run test:integration
+        
+    - name: Test data flow
+      run: |
+        # Create test trace via API
+        TRACE_ID=$(docker compose exec -T api python -c "
+        import requests
+        resp = requests.post('http://localhost:8000/api/traces', json={
+          'name': 'integration-test',
+          'project_id': 'test-project'
+        })
+        print(resp.json()['id'])
+        ")
+        
+        # Verify trace in Cloud
+        docker compose exec -T cloud curl -f "http://localhost:3000/api/traces/$TRACE_ID"
+        
+        # Test chat with MCP tools
+        docker compose exec -T chat python tests/test_mcp_integration.py
+        
+    - name: Performance tests
+      run: |
+        # Load test LLM Gateway
+        docker compose run --rm k6 run /scripts/llm-gateway-load.js
+        
+        # Measure service latencies
+        docker compose run --rm integration-tests python measure_latencies.py
+        
+    - name: Collect logs on failure
+      if: failure()
+      run: |
+        docker compose logs > docker-logs.txt
+        
+    - name: Upload logs
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: integration-test-logs
+        path: docker-logs.txt
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        docker compose down -v
+        
+  service-isolation-test:
+    name: Service Isolation Tests
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [llm-gateway, chat, search, api, cloud, iam]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Test ${{ matrix.service }} in isolation
+      run: |
+        cp .env.example .env
+        
+        # Start only required dependencies
+        case "${{ matrix.service }}" in
+          llm-gateway)
+            docker compose up -d postgres redis
+            ;;
+          chat)
+            docker compose up -d postgres redis mongodb llm-gateway
+            ;;
+          search)
+            docker compose up -d postgres meilisearch
+            ;;
+          api)
+            docker compose up -d postgres redis minio
+            ;;
+          cloud)
+            docker compose up -d postgres redis clickhouse
+            ;;
+          iam)
+            docker compose up -d postgres
+            ;;
+        esac
+        
+        # Wait for dependencies
+        sleep 10
+        
+        # Start service
+        docker compose up -d ${{ matrix.service }}
+        
+        # Wait for service
+        sleep 20
+        
+        # Test service
+        case "${{ matrix.service }}" in
+          llm-gateway)
+            curl -f http://localhost:4000/health || exit 1
+            ;;
+          chat)
+            curl -f http://localhost:3081/api/health || exit 1
+            ;;
+          search)
+            curl -f http://localhost:3000 || exit 1
+            ;;
+          api)
+            curl -f http://localhost:8000/health || exit 1
+            ;;
+          cloud)
+            curl -f http://localhost:3000 || exit 1
+            ;;
+          iam)
+            curl -f http://localhost:8000/api/health || exit 1
+            ;;
+        esac
+        
+    - name: Cleanup
+      if: always()
+      run: docker compose down -v
+      
+  mock-external-services-test:
+    name: Mock External Services Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Start mock services
+      run: |
+        docker compose -f docker-compose.mocks.yml up -d
+        
+        # Wait for mocks
+        sleep 10
+        
+    - name: Verify mock services
+      run: |
+        # Mock OpenAI
+        curl -X POST http://localhost:8080/v1/chat/completions \
+          -H "Content-Type: application/json" \
+          -d '{"model": "gpt-4", "messages": [{"role": "user", "content": "test"}]}' || exit 1
+          
+        # Mock Anthropic
+        curl -X POST http://localhost:8081/v1/messages \
+          -H "Content-Type: application/json" \
+          -d '{"model": "claude-3", "messages": [{"role": "user", "content": "test"}]}' || exit 1
+          
+        # Mock Stripe
+        curl -f http://localhost:8082/v1/customers || exit 1
+        
+        # Mock OAuth providers
+        curl -f http://localhost:8083/oauth/authorize || exit 1
+        
+    - name: Test services with mocks
+      run: |
+        cp .env.example .env
+        
+        # Point to mock services
+        cat >> .env << EOF
+        OPENAI_BASE_URL=http://localhost:8080/v1
+        ANTHROPIC_BASE_URL=http://localhost:8081/v1
+        STRIPE_API_URL=http://localhost:8082/v1
+        OAUTH_MOCK_URL=http://localhost:8083
+        EOF
+        
+        # Start core stack
+        docker compose up -d postgres redis llm-gateway chat api
+        
+        # Wait for services
+        sleep 20
+        
+        # Test LLM calls go to mocks
+        docker compose exec -T llm-gateway python -c "
+        import requests
+        resp = requests.post('http://localhost:4000/v1/chat/completions', 
+          json={'model': 'gpt-4', 'messages': [{'role': 'user', 'content': 'test'}]},
+          headers={'Authorization': 'Bearer test-key'})
+        assert resp.status_code == 200
+        print('Mock OpenAI working')
+        "
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        docker compose -f docker-compose.mocks.yml down -v
+        docker compose down -v

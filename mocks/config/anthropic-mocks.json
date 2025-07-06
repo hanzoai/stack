@@ -1,0 +1,57 @@
+[
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/v1/messages",
+      "headers": [
+        {
+          "name": "Content-Type",
+          "values": ["application/json"]
+        }
+      ]
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "headers": [
+        {
+          "name": "Content-Type",
+          "values": ["application/json"]
+        }
+      ],
+      "body": {
+        "id": "msg_mock",
+        "type": "message",
+        "role": "assistant",
+        "content": [
+          {
+            "type": "text",
+            "text": "This is a mock response from Claude for testing purposes."
+          }
+        ],
+        "model": "claude-3-sonnet-20240229",
+        "stop_reason": "end_turn",
+        "stop_sequence": null,
+        "usage": {
+          "input_tokens": 10,
+          "output_tokens": 15
+        }
+      }
+    }
+  },
+  {
+    "httpRequest": {
+      "method": "POST",
+      "path": "/v1/complete"
+    },
+    "httpResponse": {
+      "statusCode": 200,
+      "body": {
+        "completion": " This is a mock Claude completion.",
+        "stop_reason": "stop_sequence",
+        "model": "claude-2.1",
+        "stop": null,
+        "log_id": "mock-log-id"
+      }
+    }
+  }
+]
