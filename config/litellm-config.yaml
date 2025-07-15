@@ -1,0 +1,49 @@
+# LiteLLM Configuration for Testing
+model_list:
+  - model_name: gpt-3.5-turbo
+    litellm_params:
+      model: openai/gpt-3.5-turbo
+      api_base: http://mock-openai:1080/v1
+      api_key: mock-key
+      mock_response: true
+
+  - model_name: gpt-4
+    litellm_params:
+      model: openai/gpt-4
+      api_base: http://mock-openai:1080/v1
+      api_key: mock-key
+      mock_response: true
+
+  - model_name: claude-3-sonnet
+    litellm_params:
+      model: anthropic/claude-3-sonnet-20240229
+      api_base: http://mock-openai:1080/v1
+      api_key: mock-key
+      mock_response: true
+
+  - model_name: text-embedding-ada-002
+    litellm_params:
+      model: openai/text-embedding-ada-002
+      api_base: http://mock-openai:1080/v1
+      api_key: mock-key
+      mock_response: true
+
+general_settings:
+  master_key: ${ROUTER_MASTER_KEY}
+  database_url: ${DATABASE_URL}
+  cache: true
+  cache_params:
+    type: redis
+    host: redis
+    port: 6379
+    password: ${REDIS_PASSWORD}
+
+router_settings:
+  routing_strategy: simple-shuffle
+  model_group_alias:
+    chat-model: ["gpt-3.5-turbo", "gpt-4", "claude-3-sonnet"]
+  
+litellm_settings:
+  drop_params: false
+  set_verbose: true
+  json_logs: true

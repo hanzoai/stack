@@ -1,0 +1,25 @@
+# Development override - only starts infrastructure, not apps
+version: '3.8'
+
+services:
+  # Ensure infrastructure has proper dev settings
+  mongodb:
+    ports:
+      - "27017:27017"
+  
+  redis:
+    ports:
+      - "6379:6379"
+  
+  postgres:
+    ports:
+      - "5432:5432"
+  
+  minio:
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+  
+  meilisearch:
+    ports:
+      - "7700:7700"

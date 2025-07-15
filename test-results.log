@@ -1,0 +1,39 @@
+[0;32m[17:19:20][0m Hanzo Stack Integration Test
+[0;32m[17:19:20][0m ============================
+[0;32m[17:19:20][0m Verifying infrastructure services...
+[0;32m[17:19:20][0m ✓ PostgreSQL ready
+[0;32m[17:19:20][0m ✓ Redis ready
+[0;32m[17:19:20][0m ✓ MongoDB ready
+[0;32m[17:19:20][0m ✓ MinIO ready
+[0;32m[17:19:20][0m ✓ Meilisearch ready
+[0;32m[17:19:20][0m Starting mock Hanzo services...
+[0;34m[INFO][0m Starting LLM Router...
+[0;34m[INFO][0m Starting API Service...
+[0;32m[17:19:20][0m Waiting for services to start...
+[0;32m[17:19:30][0m Running integration tests...
+[0;34m[INFO][0m Test 1: LLM Router Health Check
+[0;32m[17:19:30][0m ✓ LLM Router health check passed
+[0;34m[INFO][0m Test 2: API Health Check
+[0;32m[17:19:30][0m ✓ API health check passed
+[0;34m[INFO][0m Test 3: Create Project
+[0;32m[17:19:30][0m ✓ Created project: proj_56d9abbe
+[0;34m[INFO][0m Test 4: Create Trace
+[0;32m[17:19:30][0m ✓ Created trace: trace_57bacfb0
+[0;34m[INFO][0m Test 5: LLM Chat Completion
+[0;32m[17:19:30][0m ✓ LLM chat completion successful
+[0;34m[INFO][0m Test 6: List Available Models
+[0;32m[17:19:30][0m ✓ Models listing successful
+
+========================================
+[0;32m[17:19:30][0m Integration Test Summary
+========================================
+Tests Passed: 6
+Tests Failed: 0
+
+[0;32m[17:19:30][0m All tests passed! 🎉
+
+Service URLs:
+  LLM Router: http://localhost:4000
+  API:        http://localhost:8000
+
+[0;32m[17:19:30][0m Cleaning up services...

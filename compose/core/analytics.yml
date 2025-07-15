@@ -1,4 +1,3 @@
-version: '3.8'
 
 services:
   # Placeholder for analytics compose - ClickHouse is already in database.yml

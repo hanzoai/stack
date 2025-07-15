@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "hanzo-router": {
+      "command": "curl",
+      "args": [
+        "-X", "POST",
+        "http://localhost:4000/v1/chat/completions",
+        "-H", "Content-Type: application/json",
+        "-H", "Authorization: Bearer sk-router-master-hanzo"
+      ],
+      "env": {
+        "HANZO_ROUTER_URL": "http://localhost:4000",
+        "HANZO_API_KEY": "sk-router-master-hanzo"
+      }
+    },
+    "hanzo-mcp": {
+      "command": "uvx",
+      "args": ["hanzo-mcp"],
+      "env": {
+        "WORKSPACE_PATH": "/Users/z/work/hanzo/stack/workspace",
+        "HANZO_ROUTER_URL": "http://localhost:4000",
+        "HANZO_RUNTIME_URL": "http://localhost:3003"
+      }
+    }
+  }
+}

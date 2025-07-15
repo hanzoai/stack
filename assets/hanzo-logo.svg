@@ -1,0 +1,15 @@
+<svg width="120" height="40" viewBox="0 0 120 40" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Hanzo Logo - Stylized H -->
+  <g>
+    <!-- Main H shape -->
+    <path d="M10 10 L10 30 M10 20 L20 20 M20 10 L20 30" stroke="#000" stroke-width="3" fill="none"/>
+    <!-- Decorative slash -->
+    <path d="M25 15 L15 25" stroke="#FF0000" stroke-width="2" fill="none"/>
+  </g>
+  
+  <!-- Text: HANZO -->
+  <text x="35" y="26" font-family="Arial, sans-serif" font-size="20" font-weight="bold" fill="#000">HANZO</text>
+  
+  <!-- Subtitle: AI -->
+  <text x="35" y="35" font-family="Arial, sans-serif" font-size="10" fill="#666">AI PLATFORM</text>
+</svg>

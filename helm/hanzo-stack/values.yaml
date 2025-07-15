@@ -1,0 +1,161 @@
+# Default values for hanzo-stack.
+# This is a YAML-formatted file.
+
+global:
+  storageClass: "" # Use default storage class
+  domain: "hanzo.local"
+
+# Infrastructure Services
+postgresql:
+  enabled: true
+  auth:
+    username: hanzo
+    password: changeme-strong-password
+    database: hanzo
+  primary:
+    persistence:
+      enabled: true
+      size: 10Gi
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: changeme-strong-password
+  master:
+    persistence:
+      enabled: true
+      size: 2Gi
+
+mongodb:
+  enabled: true
+  auth:
+    enabled: true
+    rootPassword: changeme-strong-password
+    username: hanzo
+    password: changeme-strong-password
+    database: hanzo
+  persistence:
+    enabled: true
+    size: 10Gi
+
+minio:
+  enabled: true
+  auth:
+    rootUser: minioadmin
+    rootPassword: changeme-strong-password
+  persistence:
+    enabled: true
+    size: 20Gi
+
+meilisearch:
+  enabled: true
+  image:
+    repository: getmeili/meilisearch
+    tag: latest
+  masterKey: changeme-strong-password
+  persistence:
+    enabled: true
+    size: 5Gi
+
+# Hanzo Services
+llm:
+  enabled: true
+  image:
+    repository: ghcr.io/hanzoai/llm
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 4000
+  env:
+    masterKey: sk-router-changeme-strong-key
+    # Add your LLM provider keys here
+    openaiApiKey: ""
+    anthropicApiKey: ""
+    togetherApiKey: ""
+    googleApiKey: ""
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+chat:
+  enabled: true
+  image:
+    repository: ghcr.io/hanzoai/chat
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3081
+  ingress:
+    enabled: true
+    className: nginx
+    annotations:
+      cert-manager.io/cluster-issuer: letsencrypt-prod
+    hosts:
+      - host: chat.hanzo.local
+        paths:
+          - path: /
+            pathType: Prefix
+    tls:
+      - secretName: chat-tls
+        hosts:
+          - chat.hanzo.local
+  env:
+    nodeEnv: production
+    brandMode: "true"
+    brandName: "Hanzo AI"
+    appTitle: "Hanzo AI Chat"
+    brandColor: "#000000"
+    defaultTheme: "dark"
+    # Auth
+    nextauthSecret: changeme-random-secret-string
+    clerkSecretKey: ""
+  resources:
+    requests:
+      memory: "512Mi"
+      cpu: "250m"
+    limits:
+      memory: "2Gi"
+      cpu: "1000m"
+
+search:
+  enabled: false
+  image:
+    repository: ghcr.io/hanzoai/search
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 3000
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: search.hanzo.local
+        paths:
+          - path: /
+            pathType: Prefix
+
+api:
+  enabled: false
+  image:
+    repository: ghcr.io/hanzoai/api
+    tag: latest
+    pullPolicy: IfNotPresent
+  service:
+    type: ClusterIP
+    port: 8000
+  ingress:
+    enabled: true
+    className: nginx
+    hosts:
+      - host: api.hanzo.local
+        paths:
+          - path: /
+            pathType: Prefix

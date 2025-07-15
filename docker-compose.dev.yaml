@@ -1,0 +1,190 @@
+services:
+  # Infrastructure Services (same as production)
+  postgres:
+    image: postgres:16-alpine
+    container_name: hanzo-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-hanzo}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hanzo123}
+      POSTGRES_DB: ${POSTGRES_DB:-hanzo}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hanzo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hanzo-redis
+    restart: unless-stopped
+    command: redis-server --requirepass ${REDIS_PASSWORD:-hanzo123}
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "--pass", "${REDIS_PASSWORD:-hanzo123}", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: hanzo-mongodb
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGODB_USERNAME:-hanzo}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGODB_PASSWORD:-hanzo123}
+      MONGO_INITDB_DATABASE: ${MONGODB_DATABASE:-hanzo}
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    volumes:
+      - mongodb_data:/data/db
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: hanzo-minio
+    restart: unless-stopped
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-minioadmin}
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  meilisearch:
+    image: getmeili/meilisearch:latest
+    container_name: hanzo-meilisearch
+    restart: unless-stopped
+    environment:
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-hanzo123}
+      MEILI_ENV: ${MEILI_ENV:-development}
+    ports:
+      - "${MEILISEARCH_PORT:-7700}:7700"
+    volumes:
+      - meilisearch_data:/meili_data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Development versions building from local source
+  llm-gateway-dev:
+    image: ghcr.io/hanzoai/llm:latest
+    container_name: hanzo-llm-gateway-dev
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/litellm?sslmode=disable
+      REDIS_URL: redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      MASTER_KEY: ${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      TOGETHER_API_KEY: ${TOGETHER_API_KEY}
+      GOOGLE_API_KEY: ${GOOGLE_API_KEY}
+      PORT: 4000
+    ports:
+      - "${LLM_PORT:-4000}:4000"
+    volumes:
+      - ./litellm/config.yaml:/app/config.yaml:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  chat-dev:
+    image: ghcr.io/hanzoai/chat:latest
+    container_name: hanzo-chat-dev
+    restart: unless-stopped
+    environment:
+      MONGO_URI: mongodb://${MONGODB_USERNAME:-hanzo}:${MONGODB_PASSWORD:-hanzo123}@mongodb:27017/${MONGODB_DATABASE:-chat}?authSource=admin
+      REDIS_URL: redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      MEILI_HOST: http://meilisearch:7700
+      MEILI_MASTER_KEY: ${MEILISEARCH_MASTER_KEY:-hanzo123}
+      PORT: 3081
+      NODE_ENV: ${NODE_ENV:-development}
+      # Branding
+      BRAND_MODE: "true"
+      BRAND_NAME: "Hanzo AI"
+      APP_TITLE: "Hanzo AI Chat"
+      BRAND_COLOR: "#000000"
+      BRAND_LOGO_URL: "/assets/hanzo-logo.svg"
+      DEFAULT_THEME: "dark"
+      # Auth
+      JWT_SECRET: ${NEXTAUTH_SECRET:-dev-secret-please-change-in-production}
+      JWT_REFRESH_SECRET: ${NEXTAUTH_SECRET:-dev-secret-please-change-in-production}
+      CREDS_KEY: ${NEXTAUTH_SECRET:-dev-secret-please-change-in-production}
+      CREDS_IV: ${NEXTAUTH_SECRET:-dev-secret-please-change-in-production}
+      # LLM Config - Point to LiteLLM proxy
+      ENDPOINTS: |
+        {
+          "custom": [{
+            "name": "Hanzo",
+            "apiKey": "${ROUTER_MASTER_KEY:-sk-router-master-hanzo}",
+            "baseURL": "http://llm-gateway-dev:4000/v1",
+            "models": {
+              "default": ["gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet", "claude-3-opus"],
+              "fetch": true
+            },
+            "titleConvo": true,
+            "titleModel": "gpt-4o-mini",
+            "modelDisplayLabel": "Hanzo"
+          }]
+        }
+    ports:
+      - "${CHAT_PORT:-3081}:3081"
+    volumes:
+      - chat_uploads:/app/uploads
+      - chat_logs:/app/logs
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      llm-gateway-dev:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+networks:
+  default:
+    name: hanzo-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongodb_data:
+  minio_data:
+  meilisearch_data:
+  chat_uploads:
+  chat_logs:

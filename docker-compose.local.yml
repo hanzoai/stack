@@ -1,0 +1,89 @@
+# Local development compose file
+# Uses only public images for easy testing
+
+services:
+  # Core Infrastructure
+  postgres:
+    image: postgres:16-alpine
+    container_name: hanzo-postgres-local
+    environment:
+      - POSTGRES_USER=hanzo
+      - POSTGRES_PASSWORD=hanzo123
+      - POSTGRES_DB=hanzo_test
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hanzo"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: hanzo-redis-local
+    command: redis-server --requirepass hanzo123
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "hanzo123", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7
+    container_name: hanzo-mongodb-local
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=hanzo
+      - MONGO_INITDB_ROOT_PASSWORD=hanzo123
+      - MONGO_INITDB_DATABASE=hanzo_test
+    ports:
+      - "27017:27017"
+    healthcheck:
+      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  minio:
+    image: minio/minio:latest
+    container_name: hanzo-minio-local
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=minioadmin
+      - MINIO_ROOT_PASSWORD=minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # LiteLLM Router (public image)
+  litellm:
+    image: ghcr.io/berriai/litellm:main-stable
+    container_name: hanzo-litellm-local
+    ports:
+      - "4000:4000"
+    environment:
+      - LITELLM_MASTER_KEY=sk-test-key
+      - LITELLM_MODE=PRODUCTION
+      - UI_USERNAME=admin
+      - UI_PASSWORD=admin
+      - OPENAI_API_KEY=sk-mock
+      - ANTHROPIC_API_KEY=sk-mock
+    volumes:
+      - ./config/litellm-test-config.yaml:/app/config.yaml:ro
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--test"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:4000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10

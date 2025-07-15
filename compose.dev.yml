@@ -1,0 +1,290 @@
+# Hanzo Stack - Development Configuration
+# This file provides volume mounts for hot reload during local development
+# Usage: docker compose -f docker-compose.yaml -f compose.dev.yml up
+
+services:
+  # LLM Gateway - Development Mode
+  llm-gateway:
+    build:
+      context: ${LLM_PATH:-../llm}
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      # Mount source code for hot reload
+      - ${LLM_PATH:-../llm}:/app
+      - /app/node_modules
+      # Mount config file
+      - ${LLM_CONFIG:-./config/litellm-dev.yaml}:/app/config.yaml:ro
+    environment:
+      NODE_ENV: development
+      # Enable debug logging
+      DEBUG: "litellm:*"
+
+  # Chat - Development Mode
+  chat:
+    build:
+      context: ${CHAT_PATH:-../chat}
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      # Mount source code for hot reload
+      - ${CHAT_PATH:-../chat}:/app
+      - /app/node_modules
+      - /app/.next
+      # Preserve uploads and logs
+      - chat_uploads:/app/uploads
+      - chat_logs:/app/logs
+    environment:
+      NODE_ENV: development
+      # Enable debug mode
+      DEBUG_MODE: "true"
+      # Runtime integration for code execution
+      RUNTIME_ENABLED: "true"
+      RUNTIME_API_URL: http://runtime:3000
+      RUNTIME_API_KEY: ${RUNTIME_API_KEY:-dev-runtime-key}
+      # Enable code execution features
+      ENABLE_CODE_EXECUTION: "true"
+      CODE_EXEC_ENDPOINT: http://runtime:3000/api/execute
+
+  # Services Hub - Development Mode
+  services:
+    build:
+      context: ${SERVICES_PATH:-../services/services}
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      # Mount source code for hot reload
+      - ${SERVICES_PATH:-../services/services}:/app
+      - /app/node_modules
+      - /app/dist
+    environment:
+      NODE_ENV: development
+      # Enable debug logging
+      DEBUG: "services:*"
+      # Watch mode for TypeScript
+      TSC_WATCH: "true"
+
+  # Runtime Engine - Development Mode
+  runtime:
+    build:
+      context: ${RUNTIME_PATH:-../runtime}
+      dockerfile: Dockerfile
+      target: development
+    volumes:
+      # Mount source code for hot reload
+      - ${RUNTIME_PATH:-../runtime}:/app
+      - /app/node_modules
+      - /app/dist
+      # Docker socket for container management
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      # Runtime data
+      - runtime_data:/app/data
+    environment:
+      NODE_ENV: development
+      # Enable debug logging
+      DEBUG: "runtime:*"
+      # Development mode settings
+      DEV_MODE: "true"
+      # Allow local execution without auth in dev
+      SKIP_AUTH: ${SKIP_AUTH:-true}
+      # Use local runner
+      USE_LOCAL_RUNNER: "true"
+
+  # API Service - Development Mode (if enabled)
+  api:
+    profiles: ["api"]
+    build:
+      context: ${API_PATH:-../api}
+      dockerfile: Dockerfile
+      target: development
+    image: hanzo/api:dev
+    container_name: hanzo-api-dev
+    restart: unless-stopped
+    volumes:
+      # Mount source code for hot reload
+      - ${API_PATH:-../api}:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/api
+      REDIS_URL: redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      # FastAPI development settings
+      RELOAD: "true"
+      LOG_LEVEL: "debug"
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Search Service - Development Mode (if enabled)
+  search:
+    profiles: ["search"]
+    build:
+      context: ${SEARCH_PATH:-../search}
+      dockerfile: Dockerfile
+      target: development
+    image: hanzo/search:dev
+    container_name: hanzo-search-dev
+    restart: unless-stopped
+    volumes:
+      # Mount source code for hot reload
+      - ${SEARCH_PATH:-../search}:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/search
+      REDIS_URL: redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      NEXT_TELEMETRY_DISABLED: 1
+      NODE_ENV: development
+    ports:
+      - "${SEARCH_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # IAM Service - Development Mode (if enabled)
+  iam:
+    profiles: ["iam"]
+    build:
+      context: ${IAM_PATH:-../iam}
+      dockerfile: Dockerfile
+      target: development
+    image: hanzo/iam:dev
+    container_name: hanzo-iam-dev
+    restart: unless-stopped
+    volumes:
+      # Mount source code for hot reload
+      - ${IAM_PATH:-../iam}:/app
+      - /app/node_modules
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/iam
+      JWT_SECRET: ${JWT_SECRET:-dev-jwt-secret}
+      COOKIE_SECRET: ${COOKIE_SECRET:-dev-cookie-secret}
+      NODE_ENV: development
+    ports:
+      - "${IAM_PORT:-8080}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Cloud Service - Development Mode (if enabled)
+  cloud:
+    profiles: ["cloud"]
+    build:
+      context: ${CLOUD_PATH:-../cloud}
+      dockerfile: Dockerfile
+      target: development
+    image: hanzo/cloud:dev
+    container_name: hanzo-cloud-dev
+    restart: unless-stopped
+    volumes:
+      # Mount source code for hot reload
+      - ${CLOUD_PATH:-../cloud}:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/cloud
+      NEXTAUTH_URL: http://localhost:3001
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-dev-secret}
+      NODE_ENV: development
+    ports:
+      - "${CLOUD_PORT:-3001}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # MCP Service - Development Mode (if enabled)
+  mcp:
+    profiles: ["mcp"]
+    build:
+      context: ${MCP_PATH:-../mcp}
+      dockerfile: Dockerfile
+      target: development
+    image: hanzo/mcp:dev
+    container_name: hanzo-mcp-dev
+    restart: unless-stopped
+    volumes:
+      # Mount source code for hot reload
+      - ${MCP_PATH:-../mcp}:/app
+      - /app/__pycache__
+      - /app/.pytest_cache
+      # Mount workspace for file operations
+      - ${WORKSPACE_PATH:-./workspace}:/workspace
+    environment:
+      PYTHONUNBUFFERED: 1
+      LOG_LEVEL: debug
+      WORKSPACE_PATH: /workspace
+    command: ["uvicorn", "mcp.server.app:app", "--reload", "--host", "0.0.0.0", "--port", "3000"]
+    ports:
+      - "${MCP_PORT:-3004}:3000"
+
+  # Agent Service - Development Mode (if enabled)
+  agent:
+    profiles: ["agent"]
+    build:
+      context: ${AGENT_PATH:-../agent}
+      dockerfile: Dockerfile
+      target: development
+    image: hanzo/agent:dev
+    container_name: hanzo-agent-dev
+    restart: unless-stopped
+    volumes:
+      # Mount source code for hot reload
+      - ${AGENT_PATH:-../agent}:/app
+      - /app/node_modules
+    environment:
+      NODE_ENV: development
+      LLM_GATEWAY_URL: http://llm-gateway:4000
+      ROUTER_API_KEY: ${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
+    ports:
+      - "${AGENT_PORT:-3005}:3000"
+    depends_on:
+      llm-gateway:
+        condition: service_healthy
+
+  # Development Database UI
+  adminer:
+    profiles: ["tools"]
+    image: adminer:latest
+    container_name: hanzo-adminer
+    restart: unless-stopped
+    ports:
+      - "${ADMINER_PORT:-8081}:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha-dark
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # Development Redis UI
+  redis-commander:
+    profiles: ["tools"]
+    image: rediscommander/redis-commander:latest
+    container_name: hanzo-redis-commander
+    restart: unless-stopped
+    environment:
+      REDIS_HOSTS: local:redis:6379:0:${REDIS_PASSWORD:-hanzo123}
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8082}:8081"
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # Development MinIO Console is already exposed on port 9001
+
+# Development-specific volumes
+volumes:
+  # Add any development-specific volumes here
+  workspace:
+    driver: local
