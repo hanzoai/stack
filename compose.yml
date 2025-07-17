@@ -386,6 +386,42 @@ services:
   #   networks:
   #     - hanzo-network
 
+  # Hanzo Runtime - AI Agent Runtime
+  runtime:
+    build:
+      context: ../runtime
+      dockerfile: Dockerfile.runtime.fixed
+    container_name: hanzo-runtime
+    environment:
+      - NODE_ENV=production
+      - PORT=8002
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/runtime
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - JWT_SECRET=${JWT_SECRET:-hanzo-runtime-secret}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    ports:
+      - "${RUNTIME_PORT:-8002}:8002"
+    volumes:
+      - runtime_data:/app/data
+      - runtime_sandboxes:/app/sandboxes
+      - runtime_logs:/app/logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
   # Hanzo IAM - Identity and Access Management
   iam:
     build:
@@ -402,6 +438,12 @@ services:
         condition: service_healthy
     networks:
       - hanzo-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
 # Volumes
 volumes:
@@ -422,6 +464,7 @@ volumes:
   iam_data:
   runtime_data:
   runtime_sandboxes:
+  runtime_logs:
 
 # Network
 networks:
