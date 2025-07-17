@@ -1,6 +1,6 @@
 """
 Hanzo Router Extensions
-Adds unified API routing capabilities to LiteLLM proxy
+Adds unified API routing capabilities to Router proxy
 """
 from fastapi import FastAPI, Request, Response
 from fastapi.responses import StreamingResponse
@@ -109,7 +109,7 @@ async def setup_proxy_routes(app: FastAPI):
         
         return health
 
-# This will be called by LiteLLM when the app starts
+# This will be called by Router when the app starts
 async def initialize_extensions(app: FastAPI):
     await setup_proxy_routes(app)
     print("✅ Hanzo Router Extensions loaded")

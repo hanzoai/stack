@@ -1,330 +1,279 @@
 # Hanzo Stack Makefile
+# Primary interface for managing the Hanzo AI infrastructure
 
+# Colors for output
+RED := \033[0;31m
+GREEN := \033[0;32m
+YELLOW := \033[1;33m
+BLUE := \033[0;34m
+NC := \033[0m # No Color
+
+# Default compose files
+COMPOSE := docker compose
+COMPOSE_DEV := docker compose -f compose.yml -f compose.dev.yml
+
+# Default target
+.DEFAULT_GOAL := help
+
+# ===== Help =====
 .PHONY: help
 help:
-	@echo "Hanzo Stack Commands:"
+	@echo "$(BLUE)Hanzo Stack Management$(NC)"
 	@echo ""
-	@echo "Quick Start:"
-	@echo "  make setup        - Create .env from example"
-	@echo "  make up           - Start all core services (production mode)"
-	@echo "  make dev          - Start development environment with hot reload"
-	@echo "  make health       - Check health of all services"
+	@echo "$(YELLOW)Quick Start:$(NC)"
+	@echo "  make setup         - Configure environment from template"
+	@echo "  make up            - Start all services (production mode)"
+	@echo "  make dev           - Start development mode with hot reload"
+	@echo "  make status        - Check service status"
 	@echo ""
-	@echo "Production:"
-	@echo "  make up           - Start all core services"
-	@echo "  make down         - Stop all services"
-	@echo "  make restart      - Restart all services"
-	@echo "  make ps           - List running services"
-	@echo "  make logs         - View logs (all services)"
-	@echo "  make logs-chat    - View chat service logs"
+	@echo "$(YELLOW)Service Management:$(NC)"
+	@echo "  make start         - Start all core services"
+	@echo "  make stop          - Stop all services"
+	@echo "  make restart       - Restart all services"
+	@echo "  make ps            - List running services"
+	@echo "  make health        - Health check all services"
 	@echo ""
-	@echo "Development:"
-	@echo "  make dev          - Start with hot reload (compose.dev.yml)"
-	@echo "  make dev-up       - Start dev services in background"
-	@echo "  make dev-down     - Stop development services"
-	@echo "  make dev-status   - Check development services status"
-	@echo "  make dev-logs     - Show development logs"
+	@echo "$(YELLOW)Development:$(NC)"
+	@echo "  make dev           - Start with hot reload (foreground)"
+	@echo "  make dev-up        - Start development mode (background)"
+	@echo "  make dev-down      - Stop development services"
+	@echo "  make dev-logs      - Show development logs"
+	@echo "  make dev-status    - Check development service status"
 	@echo ""
-	@echo "Testing:"
-	@echo "  make test         - Test service connectivity"
-	@echo "  make test-runtime - Test runtime code execution"
-	@echo "  make health       - Check health of all services"
-	@echo "  make load-test    - Run load testing"
+	@echo "$(YELLOW)Testing:$(NC)"
+	@echo "  make test          - Run integration tests"
+	@echo "  make test-api      - Test API endpoints"
+	@echo "  make test-router   - Test router functionality"
+	@echo "  make test-full     - Run all tests"
 	@echo ""
-	@echo "Profiles:"
-	@echo "  make with-api     - Start with API service"
-	@echo "  make with-tools   - Start with dev tools (Adminer, Redis Commander)"
-	@echo "  make all          - Start all services and tools"
+	@echo "$(YELLOW)Profiles:$(NC)"
+	@echo "  make tools         - Start with dev tools (Adminer, etc.)"
+	@echo "  make full          - Start all services including optional"
 	@echo ""
-	@echo "Maintenance:"
-	@echo "  make clean        - Remove all containers and volumes"
-	@echo "  make backup       - Backup databases"
-	@echo "  make shell-chat   - Open shell in chat container"
-	@echo "  make psql         - Connect to PostgreSQL"
-	@echo "  make redis-cli    - Connect to Redis"
+	@echo "$(YELLOW)Logs:$(NC)"
+	@echo "  make logs          - View all logs"
+	@echo "  make logs-router   - View router logs"
+	@echo "  make logs-chat     - View chat logs"
+	@echo "  make logs-cloud    - View cloud logs"
+	@echo ""
+	@echo "$(YELLOW)Database Access:$(NC)"
+	@echo "  make psql          - Connect to PostgreSQL"
+	@echo "  make redis-cli     - Connect to Redis"
+	@echo "  make mongo-shell   - Connect to MongoDB"
+	@echo ""
+	@echo "$(YELLOW)Maintenance:$(NC)"
+	@echo "  make clean         - Remove containers and volumes"
+	@echo "  make reset         - Full reset (WARNING: deletes data)"
+	@echo "  make backup        - Backup all databases"
+	@echo "  make update        - Pull latest images"
 
-# Environment setup
+# ===== Setup =====
 .PHONY: setup
 setup:
-	@if [ ! -f .env ]; then \
-		echo "Creating .env from env.example..."; \
-		cp env.example .env; \
-	fi
-	@echo "Auto-detecting API keys from environment..."
-	@for key in OPENAI_API_KEY ANTHROPIC_API_KEY TOGETHER_API_KEY GOOGLE_API_KEY; do \
-		if [ -n "$${!key}" ]; then \
-			if grep -q "^$$key=" .env; then \
-				sed -i "" "s|^$$key=.*|$$key=$${!key}|" .env; \
-			else \
-				echo "$$key=$${!key}" >> .env; \
-			fi; \
-			echo "✓ Found $$key"; \
-		fi; \
-	done
-	@echo "Environment setup complete!"
+	@echo "$(BLUE)Setting up Hanzo Stack environment...$(NC)"
+	@./scripts/setup-env.sh
 
-# Production commands
+# ===== Quick Start =====
 .PHONY: up
-up:
-	docker compose up -d
-	@echo "Waiting for services to be healthy..."
-	@sleep 10
-	@make health
+up: setup
+	@echo "$(BLUE)Starting Hanzo Stack...$(NC)"
+	@$(COMPOSE) up -d
+	@echo "$(GREEN)Waiting for services to be healthy...$(NC)"
+	@./scripts/wait-for-healthy.sh
+	@make status
 
-.PHONY: down
-down:
-	docker compose down
+.PHONY: start
+start: up
+
+.PHONY: dev
+dev: setup
+	@echo "$(BLUE)Starting Hanzo Stack in development mode...$(NC)"
+	@$(COMPOSE_DEV) up
+
+.PHONY: dev-up
+dev-up: setup
+	@echo "$(BLUE)Starting Hanzo Stack in development mode (background)...$(NC)"
+	@$(COMPOSE_DEV) up -d
+	@./scripts/wait-for-healthy.sh
+	@make status
+
+# ===== Service Management =====
+.PHONY: stop down
+stop down:
+	@echo "$(BLUE)Stopping Hanzo Stack...$(NC)"
+	@$(COMPOSE) down
 
 .PHONY: restart
 restart:
-	docker compose restart
+	@echo "$(BLUE)Restarting Hanzo Stack...$(NC)"
+	@$(COMPOSE) restart
+	@./scripts/wait-for-healthy.sh
 
 .PHONY: ps
 ps:
-	docker compose ps
-
-.PHONY: logs
-logs:
-	docker compose logs -f
-
-.PHONY: logs-%
-logs-%:
-	docker compose logs -f $*
-
-# Development commands
-.PHONY: dev
-dev:
-	docker compose -f docker-compose.yaml -f compose.dev.yml up
-
-.PHONY: dev-up
-dev-up:
-	docker compose -f docker-compose.yaml -f compose.dev.yml up -d
-
-.PHONY: dev-down
-dev-down:
-	docker compose -f docker-compose.yaml -f compose.dev.yml down
-
-# Profile-based commands
-.PHONY: with-api
-with-api:
-	docker compose --profile api up -d
-
-.PHONY: with-tools
-with-tools:
-	docker compose --profile tools up -d
-
-.PHONY: all
-all:
-	docker compose --profile api --profile search --profile iam --profile cloud --profile mcp --profile agent --profile tools up -d
-
-.PHONY: stop-dev
-stop-dev:
-	@echo "Stopping development services..."
-	@# Stop LLM Router
-	@if [ -f ../llm/.llm.pid ]; then \
-		kill $$(cat ../llm/.llm.pid) 2>/dev/null || true; \
-		rm ../llm/.llm.pid; \
-	fi
-	@# Stop Chat2
-	@cd ../chat2 && make down 2>/dev/null || true
-	@# Stop infrastructure
-	@docker compose down 2>/dev/null || docker-compose down
-	@echo "✅ All services stopped"
-
-.PHONY: start
-start:
-	@bash scripts/run-complete-stack.sh
-
-.PHONY: stop
-stop:
-	@bash scripts/run-complete-stack.sh stop
-
-.PHONY: restart
-restart: stop start
-
-# Test service connectivity
-.PHONY: test
-test:
-	@echo "Testing service connectivity..."
-	@echo ""
-	@echo "Testing LLM Gateway..."
-	@curl -s http://localhost:4000/health | jq -r '.status // "Failed"' || echo "Failed to connect"
-	@echo ""
-	@echo "Testing Chat..."
-	@curl -s http://localhost:3081/health || echo "Failed to connect"
-	@echo ""
-	@echo "Testing Runtime..."
-	@curl -s http://localhost:3003/api/health | jq -r '.status // "Failed"' || echo "Failed to connect"
-	@echo ""
-	@echo "Testing Services Hub..."
-	@curl -s http://localhost:3000/health || echo "Failed to connect"
-
-# Test runtime code execution
-.PHONY: test-runtime
-test-runtime:
-	@echo "Testing Runtime Code Execution..."
-	@echo ""
-	@echo "1. Testing Python execution:"
-	@curl -X POST http://localhost:3003/api/execute \
-		-H "Content-Type: application/json" \
-		-H "Authorization: Bearer ${RUNTIME_API_KEY:-dev-runtime-key}" \
-		-d '{"language": "python", "code": "print(\"Hello from Hanzo Runtime!\")\nprint(2 + 2)"}' \
-		2>/dev/null | jq -r '.output // "Failed"' || echo "Failed to execute Python"
-	@echo ""
-	@echo "2. Testing JavaScript execution:"
-	@curl -X POST http://localhost:3003/api/execute \
-		-H "Content-Type: application/json" \
-		-H "Authorization: Bearer ${RUNTIME_API_KEY:-dev-runtime-key}" \
-		-d '{"language": "javascript", "code": "console.log(\"Hello from JS!\"); console.log(3 * 4);"}' \
-		2>/dev/null | jq -r '.output // "Failed"' || echo "Failed to execute JavaScript"
-
-# Test complete integration
-.PHONY: test-integration
-test-integration:
-	@bash scripts/test-complete-integration.sh
-
-# Test chat-runtime integration
-.PHONY: test-chat-runtime
-test-chat-runtime:
-	@bash scripts/test-chat-runtime-integration.sh
-
-# Quick start
-.PHONY: quickstart
-quickstart:
-	@bash quickstart.sh
-
-# Health check
-.PHONY: health
-health:
-	@echo "Checking service health..."
-	@echo -n "PostgreSQL: " && (docker compose exec -T postgres pg_isready -U hanzo && echo "✓") || echo "✗"
-	@echo -n "Redis: " && (docker compose exec -T redis redis-cli --pass hanzo123 ping | grep -q PONG && echo "✓") || echo "✗"
-	@echo -n "MongoDB: " && (docker compose exec -T mongodb mongosh --eval "db.adminCommand('ping')" --quiet | grep -q 1 && echo "✓") || echo "✗"
-	@echo -n "MinIO: " && (curl -sf http://localhost:9000/minio/health/live > /dev/null && echo "✓") || echo "✗"
-	@echo -n "Meilisearch: " && (curl -sf http://localhost:7700/health > /dev/null && echo "✓") || echo "✗"
-	@echo -n "LLM Gateway: " && (curl -sf http://localhost:4000/health > /dev/null && echo "✓") || echo "✗"
-	@echo -n "Chat: " && (curl -sf http://localhost:3081/health > /dev/null && echo "✓") || echo "✗"
-	@echo -n "Runtime: " && (curl -sf http://localhost:3003/api/health > /dev/null && echo "✓") || echo "✗"
-	@echo -n "Services: " && (curl -sf http://localhost:3000/health > /dev/null && echo "✓") || echo "✗"
-
-
-# Maintenance commands
-.PHONY: clean
-clean:
-	docker compose down -v
-	docker system prune -f
-
-.PHONY: backup
-backup:
-	@echo "Creating backup directory..."
-	@mkdir -p backups/$(shell date +%Y%m%d_%H%M%S)
-	@echo "Backing up PostgreSQL..."
-	docker compose exec -T postgres pg_dumpall -U hanzo > backups/$(shell date +%Y%m%d_%H%M%S)/postgres.sql
-	@echo "Backing up MongoDB..."
-	docker compose exec -T mongodb mongodump --archive > backups/$(shell date +%Y%m%d_%H%M%S)/mongodb.archive
-	@echo "Backup complete in backups/$(shell date +%Y%m%d_%H%M%S)/"
-
-# Development helpers
-.PHONY: shell-%
-shell-%:
-	docker compose exec $* /bin/sh
-
-.PHONY: psql
-psql:
-	docker compose exec postgres psql -U hanzo
-
-.PHONY: redis-cli
-redis-cli:
-	docker compose exec redis redis-cli -a hanzo123
-
-.PHONY: mongo-shell
-mongo-shell:
-	docker compose exec mongodb mongosh -u hanzo -p hanzo123
-
-
-.PHONY: test-real
-test-real:
-	@bash scripts/test-real-stack.sh
-
-.PHONY: llm
-llm:
-	@echo "Starting real LLM service..."
-	@cd ../llm && llm --host 0.0.0.0 --port 4000 --config config.yaml
-
-.PHONY: api
-api:
-	@bash scripts/start-hanzo-api.sh
-
-.PHONY: monitor
-monitor:
-	@bash scripts/monitor-performance.sh
-
-.PHONY: fix-llm
-fix-llm:
-	@bash scripts/fix-llm-cost-tracking.sh
+	@$(COMPOSE) ps
 
 .PHONY: status
 status:
-	@echo "=== Infrastructure Status ==="
-	@docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep hanzo || echo "No Hanzo containers"
-	@echo ""
-	@echo "=== Service Status ==="
-	@curl -sf -H "Authorization: Bearer sk-hanzo-master" http://localhost:4000/health >/dev/null && echo "✅ LLM Router: Running" || echo "❌ LLM Router: Not running"
-	@curl -sf http://localhost:8000/health >/dev/null && echo "✅ API Service: Running" || echo "❌ API Service: Not running"
+	@./scripts/check-status.sh
 
-.PHONY: load-test
-load-test:
-	@chmod +x scripts/load-test.sh && ./scripts/load-test.sh
+.PHONY: health
+health:
+	@./scripts/health-check.sh
 
-.PHONY: security
-security:
-	@chmod +x scripts/security-scan.sh && ./scripts/security-scan.sh
-
-.PHONY: deploy
-deploy:
-	@chmod +x scripts/deploy-production.sh && ./scripts/deploy-production.sh
-
-.PHONY: demo
-demo:
-	@chmod +x scripts/demo-hanzo-stack.sh && ./scripts/demo-hanzo-stack.sh
-
-.PHONY: dev-status
-dev-status:
-	@echo "=== Hanzo Development Status ==="
-	@echo ""
-	@echo "🔍 Checking services..."
-	@echo ""
-	@# Check infrastructure
-	@docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(postgres|redis|mongodb|minio|meilisearch)" || echo "No infrastructure containers running"
-	@echo ""
-	@# Check LLM Router
-	@if curl -sf http://localhost:4000/health >/dev/null; then \
-		echo "✅ LLM Router: Running at http://localhost:4000"; \
-		echo "   Models: http://localhost:4000/v1/models"; \
-	else \
-		echo "❌ LLM Router: Not responding"; \
-	fi
-	@echo ""
-	@# Check Chat2
-	@if curl -sf http://localhost:3081 >/dev/null; then \
-		echo "✅ Chat2: Running at http://localhost:3081"; \
-	else \
-		echo "❌ Chat2: Not responding (may still be starting)"; \
-	fi
-	@echo ""
-	@# Show process status
-	@echo "📊 Running processes:"
-	@ps aux | grep -E "(llm.*config.yaml|chat2.*dev)" | grep -v grep || echo "No dev processes found"
+# ===== Development =====
+.PHONY: dev-down
+dev-down:
+	@echo "$(BLUE)Stopping development services...$(NC)"
+	@$(COMPOSE_DEV) down
 
 .PHONY: dev-logs
 dev-logs:
-	@echo "=== Development Logs ==="
+	@$(COMPOSE_DEV) logs -f
+
+.PHONY: dev-status
+dev-status:
+	@echo "$(BLUE)Development Service Status:$(NC)"
+	@$(COMPOSE_DEV) ps
 	@echo ""
-	@echo "📝 LLM Router logs:"
-	@tail -n 20 ../llm/llm.log 2>/dev/null || echo "No LLM logs found"
-	@echo ""
-	@echo "📝 Chat2 Backend logs:"
-	@tail -n 20 ../chat2/backend.log 2>/dev/null || echo "No Chat2 backend logs found"
-	@echo ""
-	@echo "📝 Chat2 Frontend logs:"
-	@tail -n 20 ../chat2/frontend.log 2>/dev/null || echo "No Chat2 frontend logs found"
+	@./scripts/check-dev-services.sh
+
+# ===== Testing =====
+.PHONY: test
+test:
+	@echo "$(BLUE)Running integration tests...$(NC)"
+	@./scripts/test-integration.sh
+
+.PHONY: test-api
+test-api:
+	@echo "$(BLUE)Testing API endpoints...$(NC)"
+	@./scripts/test-api-endpoints.sh
+
+.PHONY: test-router
+test-router:
+	@echo "$(BLUE)Testing router functionality...$(NC)"
+	@./scripts/test-router.sh
+
+.PHONY: test-full
+test-full: test-api test-router test
+	@echo "$(GREEN)All tests completed!$(NC)"
+
+# ===== Profiles =====
+.PHONY: tools
+tools:
+	@echo "$(BLUE)Starting with development tools...$(NC)"
+	@COMPOSE_PROFILES=tools $(COMPOSE) up -d
+
+.PHONY: full
+full:
+	@echo "$(BLUE)Starting full stack with all services...$(NC)"
+	@COMPOSE_PROFILES=tools,full $(COMPOSE_DEV) up -d
+
+# ===== Logs =====
+.PHONY: logs
+logs:
+	@$(COMPOSE) logs -f
+
+.PHONY: logs-%
+logs-%:
+	@$(COMPOSE) logs -f $*
+
+# ===== Database Access =====
+.PHONY: psql
+psql:
+	@echo "$(BLUE)Connecting to PostgreSQL...$(NC)"
+	@$(COMPOSE) exec postgres psql -U ${POSTGRES_USER:-hanzo} ${POSTGRES_DB:-hanzo}
+
+.PHONY: redis-cli
+redis-cli:
+	@echo "$(BLUE)Connecting to Redis...$(NC)"
+	@$(COMPOSE) exec redis redis-cli -a ${REDIS_PASSWORD:-hanzo123}
+
+.PHONY: mongo-shell
+mongo-shell:
+	@echo "$(BLUE)Connecting to MongoDB...$(NC)"
+	@$(COMPOSE) exec mongodb mongosh -u ${MONGO_ROOT_USERNAME:-hanzo} -p ${MONGO_ROOT_PASSWORD:-hanzo123}
+
+# ===== Shell Access =====
+.PHONY: shell-%
+shell-%:
+	@echo "$(BLUE)Opening shell in $* container...$(NC)"
+	@$(COMPOSE) exec $* /bin/sh
+
+# ===== Maintenance =====
+.PHONY: clean
+clean:
+	@echo "$(YELLOW)Cleaning up containers and volumes...$(NC)"
+	@$(COMPOSE) down -v
+	@docker system prune -f
+
+.PHONY: reset
+reset:
+	@echo "$(RED)WARNING: This will delete all data!$(NC)"
+	@echo "Press Ctrl+C to cancel, or wait 5 seconds to continue..."
+	@sleep 5
+	@$(COMPOSE) down -v
+	@rm -rf workspace/*
+	@echo "$(GREEN)Reset complete.$(NC)"
+
+.PHONY: backup
+backup:
+	@echo "$(BLUE)Creating backup...$(NC)"
+	@./scripts/backup-databases.sh
+
+.PHONY: update
+update:
+	@echo "$(BLUE)Pulling latest images...$(NC)"
+	@$(COMPOSE) pull
+	@echo "$(GREEN)Images updated. Run 'make restart' to apply.$(NC)"
+
+# ===== Advanced Operations =====
+.PHONY: scale-%
+scale-%:
+	@echo "$(BLUE)Scaling $* service...$(NC)"
+	@$(COMPOSE) up -d --scale $*=3
+
+.PHONY: exec
+exec:
+	@echo "$(BLUE)Executing command in service...$(NC)"
+	@echo "Usage: make exec service=router cmd='ls -la'"
+	@$(COMPOSE) exec $(service) $(cmd)
+
+# ===== Demo & Examples =====
+.PHONY: demo
+demo:
+	@echo "$(BLUE)Running Hanzo Stack demo...$(NC)"
+	@./scripts/demo-stack.sh
+
+.PHONY: example-chat
+example-chat:
+	@echo "$(BLUE)Opening example chat completion...$(NC)"
+	@./scripts/example-chat-completion.sh
+
+# ===== CI/CD =====
+.PHONY: ci-test
+ci-test:
+	@echo "$(BLUE)Running CI tests...$(NC)"
+	@./scripts/ci-test.sh
+
+.PHONY: build
+build:
+	@echo "$(BLUE)Building all services...$(NC)"
+	@$(COMPOSE_DEV) build
+
+# ===== Utilities =====
+.PHONY: check-ports
+check-ports:
+	@echo "$(BLUE)Checking for port conflicts...$(NC)"
+	@./scripts/check-ports.sh
+
+.PHONY: env-info
+env-info:
+	@echo "$(BLUE)Environment Information:$(NC)"
+	@./scripts/show-env-info.sh
+
+# ===== Documentation =====
+.PHONY: docs
+docs:
+	@echo "$(BLUE)Opening documentation...$(NC)"
+	@python -m http.server -d docs 8888

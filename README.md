@@ -1,199 +1,188 @@
 # Hanzo Stack
 
-The complete Hanzo AI infrastructure stack - run all 50+ Hanzo services locally with a single command.
-
-## Overview
-
-This repository provides a unified way to run the entire Hanzo AI ecosystem locally for development and testing. It orchestrates all services including:
-
-- Core AI Infrastructure (LLM, Chat, MCP, Agent, Operative)
-- AI Models & Research (Jin, GPT, Enso, Genjo)
-- Application Platforms (Search, Flow, Studio, Suite)
-- Developer Tools (API, Cloud, KMS, IAM)
-- Business & Finance (Financials, Captable)
-- And 30+ more services
+Complete development and production stack for Hanzo AI platform.
 
 ## Quick Start
 
+### Production Mode (Using Pre-built Images)
 ```bash
-# Clone this repository
-git clone https://github.com/hanzoai/stack.git
-cd stack
+# Start all services with pre-built images
+docker compose up -d
 
-# Clone all Hanzo repositories
-make clone-all
+# View logs
+docker compose logs -f
 
-# Start the entire stack
-make up
-
-# Check service health
-make health
+# Stop services
+docker compose down
 ```
 
-## Prerequisites
-
-- Docker and Docker Compose v2+
-- At least 32GB RAM (64GB recommended)
-- 100GB+ free disk space
-- Python 3.11+ with uv
-- Node.js 20+ with pnpm
-- Go 1.21+
-
-## Architecture
-
-The stack is organized into logical groups:
-
-### Core Services
-- **PostgreSQL**: Primary database with pgvector
-- **Redis**: Caching and queuing
-- **MinIO**: S3-compatible object storage
-- **MongoDB**: Document storage
-- **Meilisearch**: Full-text search
-- **ClickHouse**: Analytics database
-
-### AI Infrastructure
-- **LLM Gateway** (port 4000): Unified LLM proxy
-- **Chat** (port 3081): AI chat platform
-- **MCP**: Model Context Protocol server
-- **Agent**: Multi-agent orchestration
-- **Operative**: Computer use implementation
-
-### Application Services
-- **Search** (port 3000): AI-powered search
-- **Flow**: Visual workflow builder
-- **Studio**: Desktop application
-- **Suite**: Business applications
-
-### Supporting Services
-- **API** (port 8000): Core API services
-- **Cloud**: Infrastructure management
-- **IAM**: Identity management
-- **KMS**: Key management
-
-## Service Ports
-
-| Service | Port | Description |
-|---------|------|-------------|
-| LLM Gateway | 4000 | Unified LLM proxy |
-| Chat | 3081 | AI chat platform |
-| Search | 3000 | AI search engine |
-| API | 8000 | Core API |
-| Az2 Admin | 5173 | Document processing UI |
-| Az2 API | 9002 | Document processing API |
-| MinIO | 9000/9001 | Object storage |
-| PostgreSQL | 5432 | Primary database |
-| Redis | 6379 | Cache/queue |
-| MongoDB | 27017 | Document database |
-
-## Commands
-
+### Development Mode (Building from Source)
 ```bash
-# Service management
-make up              # Start all services
-make down            # Stop all services
-make restart         # Restart all services
-make logs            # View all logs
-make health          # Check service health
+# Start all services building from local source code
+docker compose -f compose.dev.yml up -d
 
-# Individual service groups
-make up-core         # Start core infrastructure only
-make up-ai           # Start AI services only
-make up-apps         # Start application services only
+# View logs
+docker compose -f compose.dev.yml logs -f
 
-# Development
-make dev             # Start in development mode
-make test            # Run all tests
-make build           # Build all services
-
-# Maintenance
-make clean           # Clean containers and volumes
-make reset           # Full reset (WARNING: deletes data)
-make backup          # Backup all data
-make restore         # Restore from backup
+# Stop services
+docker compose -f compose.dev.yml down
 ```
 
-## Environment Configuration
+## Available Services
 
-Copy the example environment file and configure:
+| Service | Production Port | Dev Port | Description |
+|---------|----------------|----------|-------------|
+| PostgreSQL | 5432 | 5432 | Primary database |
+| Redis | 6379 | 6379 | Cache and message queue |
+| MongoDB | 27017 | 27017 | Document database |
+| MinIO | 9000/9001 | 9000/9001 | S3-compatible storage |
+| Meilisearch | 7700 | 7700 | Search engine |
+| Router | 4000 | 4000 | LLM Gateway |
+| Chat | 3081 | 3081 | LibreChat fork with MCP support |
+| IDE | 3002 | 3002 | OpenHands AI development assistant |
+| Analytics | 3090 | 3090 | Privacy-focused analytics platform |
+| Runtime | 8002 | 8002 | Code execution sandbox |
+| Cloud | 3001 | 3001 | Infrastructure management (coming soon) |
+| Search | 3000 | 3000 | AI-powered search (coming soon) |
+| IAM | 8000 | 8000 | Identity management (coming soon) |
 
+## Development Tools
+
+Start additional development tools:
 ```bash
-cp .env.example .env
+# Production mode
+docker compose --profile tools up -d
+
+# Development mode
+docker compose -f compose.dev.yml --profile tools up -d
 ```
 
-Required environment variables:
+Tools available:
+- Adminer (Database UI): http://localhost:8080
+- Redis Commander: http://localhost:8081
+- Mongo Express: http://localhost:8082
+
+## Configuration
+
+### Environment Variables
+Copy `.env.example` to `.env` and configure:
 
 ```bash
-# Database
-POSTGRES_USER=hanzo
-POSTGRES_PASSWORD=secure_password
-POSTGRES_DB=hanzo
-
-# Redis
-REDIS_PASSWORD=secure_password
-
-# MinIO
-MINIO_ROOT_USER=minioadmin
-MINIO_ROOT_PASSWORD=secure_password
-
-# AI Providers (at least one required)
+# API Keys (required for Router)
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
-TOGETHER_API_KEY=...
 
-# Authentication
-CLERK_SECRET_KEY=...
-SUPABASE_URL=...
-SUPABASE_ANON_KEY=...
+# Database Credentials (defaults provided)
+POSTGRES_USER=hanzo
+POSTGRES_PASSWORD=hanzo123
+
+# Service Ports (defaults provided)
+ROUTER_PORT=4000
+CHAT_PORT=3081
 ```
 
-## Memory Requirements
+### Router Configuration
+- Production: Uses `config/router-config-minimal.yaml`
+- Development: Uses `config/router-config.yaml` with full features
 
-Minimum requirements by service group:
+## File Structure
 
-- Core Infrastructure: 8GB
-- AI Services: 16GB
-- Application Services: 8GB
-- Full Stack: 32GB (64GB recommended)
+```
+stack/
+├── compose.yml              # Production compose with pre-built images
+├── compose.dev.yml          # Development compose building from source
+├── config/                  # Service configuration files
+│   ├── router-config.yaml
+│   └── router-config-minimal.yaml
+├── data/                    # Persistent data (dev mode)
+├── logs/                    # Service logs (dev mode)
+└── tests/                   # Integration tests
+```
 
-## Monitoring
+## Testing
 
-Access monitoring dashboards:
-
-- Grafana: http://localhost:3030
-- Prometheus: http://localhost:9090
-- Jaeger: http://localhost:16686
+Run integration tests:
+```bash
+cd tests
+npm install
+npm test
+```
 
 ## Troubleshooting
 
-### Out of Memory
-
-Increase Docker memory allocation:
-- Docker Desktop: Preferences > Resources > Memory
-
-### Port Conflicts
-
-Check and kill conflicting processes:
+### Services not starting
 ```bash
-make check-ports
+# Check service logs
+docker compose logs [service-name]
+
+# Restart specific service
+docker compose restart [service-name]
+
+# Clean restart everything
+docker compose down -v
+docker compose up -d
 ```
 
-### Service Won't Start
-
-Check individual service logs:
+### Port conflicts
 ```bash
-make logs service=chat
+# Check what's using a port
+lsof -i :PORT_NUMBER
+
+# Kill process using port
+kill -9 PID
 ```
 
-### Reset Individual Service
-
+### Volume issues
 ```bash
-make reset-service service=chat
+# List volumes
+docker volume ls | grep hanzo
+
+# Remove specific volume
+docker volume rm VOLUME_NAME
+
+# Remove all Hanzo volumes (WARNING: deletes data)
+docker compose down -v
 ```
 
-## Contributing
+## Production Deployment
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for development guidelines.
+For production deployment:
+
+1. Use `compose.yml` (not `compose.dev.yml`)
+2. Set proper environment variables in `.env`
+3. Use real API keys for LLM providers
+4. Configure proper database passwords
+5. Set up SSL/TLS termination (use Traefik or nginx)
+6. Enable backups for data volumes
+
+## Development Workflow
+
+1. Clone all required repositories alongside the stack:
+   ```
+   hanzo/
+   ├── stack/      # This repository
+   ├── llm/        # Router service
+   ├── chat/       # Chat service
+   ├── cloud/      # Cloud service
+   ├── search/     # Search service
+   ├── ide/        # IDE service
+   ├── iam/        # IAM service
+   └── runtime/    # Runtime service
+   ```
+
+2. Start development stack:
+   ```bash
+   cd stack
+   docker compose -f compose.dev.yml up -d
+   ```
+
+3. Services will hot-reload when you edit source files
+
+4. View logs for debugging:
+   ```bash
+   docker compose -f compose.dev.yml logs -f [service-name]
+   ```
 
 ## License
 
-See individual service repositories for license information.
+See LICENSE file in the root directory.

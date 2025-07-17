@@ -1,0 +1,28 @@
+{
+  "name": "hanzo-stack-tests",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "test": "vitest",
+    "test:ui": "vitest --ui",
+    "test:run": "vitest run"
+  },
+  "devDependencies": {
+    "@types/node": "^20.19.8",
+    "@types/pg": "^8.15.4",
+    "@vitest/coverage-v8": "^3.2.4",
+    "@vitest/ui": "^1.6.1",
+    "typescript": "^5.8.3",
+    "vitest": "^1.6.1"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.490.0",
+    "axios": "^1.10.0",
+    "ioredis": "^5.6.1",
+    "meilisearch": "^0.37.0",
+    "mongodb": "^6.3.0",
+    "openai": "^4.24.0",
+    "pg": "^8.11.3",
+    "redis": "^4.6.12"
+  }
+}

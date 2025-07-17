@@ -1,81 +1,81 @@
 model_list:
   # OpenAI Models
   - model_name: gpt-4o
-    llm_params:
+    litellm_params:
       model: gpt-4o
       api_key: os.environ/OPENAI_API_KEY
   
   - model_name: gpt-4o-mini
-    llm_params:
+    litellm_params:
       model: gpt-4o-mini
       api_key: os.environ/OPENAI_API_KEY
   
   - model_name: gpt-4-turbo
-    llm_params:
+    litellm_params:
       model: gpt-4-turbo
       api_key: os.environ/OPENAI_API_KEY
   
   - model_name: gpt-3.5-turbo
-    llm_params:
+    litellm_params:
       model: gpt-3.5-turbo
       api_key: os.environ/OPENAI_API_KEY
   
   # Anthropic Models
   - model_name: claude-3-5-sonnet-20241022
-    llm_params:
+    litellm_params:
       model: claude-3-5-sonnet-20241022
       api_key: os.environ/ANTHROPIC_API_KEY
   
   - model_name: claude-3-opus-20240229
-    llm_params:
+    litellm_params:
       model: claude-3-opus-20240229
       api_key: os.environ/ANTHROPIC_API_KEY
   
   - model_name: claude-3-sonnet-20240229
-    llm_params:
+    litellm_params:
       model: claude-3-sonnet-20240229
       api_key: os.environ/ANTHROPIC_API_KEY
   
   - model_name: claude-3-haiku-20240307
-    llm_params:
+    litellm_params:
       model: claude-3-haiku-20240307
       api_key: os.environ/ANTHROPIC_API_KEY
   
   - model_name: claude-3-5-haiku-20241022
-    llm_params:
+    litellm_params:
       model: claude-3-5-haiku-20241022
       api_key: os.environ/ANTHROPIC_API_KEY
   
   # Google/Gemini Models
   - model_name: gemini-pro
-    llm_params:
+    litellm_params:
       model: gemini-pro
       api_key: os.environ/GEMINI_API_KEY
   
   - model_name: gemini-pro-vision
-    llm_params:
+    litellm_params:
       model: gemini-pro-vision
       api_key: os.environ/GEMINI_API_KEY
   
   # Groq Models
   - model_name: llama-3.2-90b-text-preview
-    llm_params:
+    litellm_params:
       model: groq/llama-3.2-90b-text-preview
       api_key: os.environ/GROQ_API_KEY
   
   - model_name: llama-3.2-70b-versatile
-    llm_params:
+    litellm_params:
       model: groq/llama-3.2-70b-versatile
       api_key: os.environ/GROQ_API_KEY
   
   - model_name: mixtral-8x7b-32768
-    llm_params:
+    litellm_params:
       model: groq/mixtral-8x7b-32768
       api_key: os.environ/GROQ_API_KEY
   
   # Together AI Models (if available)
   - model_name: mixtral-8x22b-instruct
-    llm_params:
+    litellm_params:
       model: together_ai/mixtral-8x22b-instruct
       api_key: os.environ/TOGETHER_API_KEY
 
@@ -89,15 +89,20 @@ router_settings:
     gemini: ["gemini-pro", "gemini-pro-vision"]
     llama: ["llama-3.2-90b-text-preview", "llama-3.2-70b-versatile"]
 
-# LiteLLM Settings
-litellm_settings:
+# Router Settings with Hanzo Console Observability
+router_settings:
   drop_params: true
   max_retries: 2
   request_timeout: 600
-  telemetry: false
+  telemetry: true
   success_callback: ["langfuse"]
+  failure_callback: ["langfuse"]
   set_verbose: false
   json_logs: true
+  # Hanzo Console integration
+  langfuse_public_key: pk_lf_hanzo
+  langfuse_secret_key: os.environ/LANGFUSE_SECRET_KEY
+  langfuse_host: http://cloud-web:3001
 
 # General Settings
 general_settings:
@@ -106,6 +111,10 @@ general_settings:
   redis_url: os.environ/REDIS_URL
   max_parallel_requests: 100
   infer_model_from_keys: true
+  # custom_auth: /app/config/router-extensions.py
+  # Enable key validation with Cloud
+  enable_key_based_auth: false
+  # key_management_system: "cloud"
   
 # MCP Settings
 mcp_servers:

@@ -1,0 +1,185 @@
+# Hanzo Stack - Development Override
+# Adds volume mounts and development configurations
+
+services:
+  # Core Infrastructure - No changes needed for dev
+  
+  # Hanzo Router (LLM Gateway) - Development mode
+  router:
+    build:
+      context: ../llm
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - ROUTER_MODE=DEVELOPMENT
+      - DEBUG=true
+      - LOG_LEVEL=debug
+    volumes:
+      # Mount source code for hot reload
+      - ../llm/litellm_proxy:/app/litellm_proxy:rw
+      - ../llm/utils:/app/utils:rw
+      - ../llm/litellm:/app/litellm:rw
+      # Mount config files
+      - ./config/router-config.yaml:/app/config.yaml:ro
+      - ./config/router-extensions.py:/app/extensions.py:ro
+      # Persist logs
+      - ./logs/router:/app/logs:rw
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--debug"]
+
+  # Hanzo Chat - Development mode
+  chat:
+    build:
+      context: ../chat
+      dockerfile: Dockerfile.librechat
+      target: development
+    environment:
+      - NODE_ENV=development
+      - DEBUG=librechat:*
+      - WATCH_CHANGES=true
+    volumes:
+      # Mount source code for hot reload
+      - ../chat:/app:rw
+      - /app/node_modules
+      - /app/.next
+      # Mount config
+      - ../chat/librechat.example.yaml:/app/librechat.yaml:ro
+      # Persist uploads and logs
+      - ./data/chat/uploads:/app/uploads:rw
+      - ./logs/chat:/app/logs:rw
+    command: ["npm", "run", "dev"]
+
+  # Hanzo Cloud - Development mode
+  cloud:
+    build:
+      context: ../cloud
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      # Mount source code
+      - ../cloud:/app:rw
+      - /app/node_modules
+      - /app/.next
+      # Mount workspace packages
+      - ../cloud/packages:/app/packages:rw
+      - ../cloud/apps:/app/apps:rw
+    command: ["pnpm", "dev"]
+
+  # Hanzo Search - Development mode
+  search:
+    build:
+      context: ../search
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      # Mount source code
+      - ../search:/app:rw
+      - /app/node_modules
+      - /app/.next
+    command: ["npm", "run", "dev"]
+
+  # Hanzo Build - Development mode
+  build:
+    build:
+      context: ../build
+      dockerfile: Dockerfile
+      target: development
+    environment:
+      - NODE_ENV=development
+      - WORKSPACE_MOUNT_PATH=/workspace
+      - SANDBOX_USER_ID=1000
+      - SANDBOX_RUNTIME_CONTAINER_IMAGE=ubuntu:22.04
+    volumes:
+      # Mount source code
+      - ../build:/app:rw
+      - build_workspace:/workspace
+      - /app/venv
+      - /app/frontend/node_modules
+    command: ["python", "-m", "poetry", "run", "dev"]
+
+  # Add development tools
+  adminer:
+    image: adminer:latest
+    container_name: hanzo-adminer
+    ports:
+      - "8080:8080"
+    networks:
+      - hanzo-network
+    depends_on:
+      - postgres
+    profiles:
+      - tools
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: hanzo-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:-hanzo123}
+    ports:
+      - "8081:8081"
+    networks:
+      - hanzo-network
+    depends_on:
+      - redis
+    profiles:
+      - tools
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: hanzo-mongo-express
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_ROOT_USERNAME:-hanzo}
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_ROOT_PASSWORD:-hanzo123}
+      - ME_CONFIG_MONGODB_SERVER=mongodb
+      - ME_CONFIG_BASICAUTH_USERNAME=admin
+      - ME_CONFIG_BASICAUTH_PASSWORD=admin
+    ports:
+      - "8082:8081"
+    networks:
+      - hanzo-network
+    depends_on:
+      - mongodb
+    profiles:
+      - tools
+
+  # Hanzo IAM - Development mode
+  iam:
+    build:
+      context: ../iam
+      dockerfile: Dockerfile.develop
+    environment:
+      - RUNNING_IN_DOCKER=true
+      - DEBUG=true
+      - driverName=postgres
+      - dataSourceName=user=${POSTGRES_USER:-hanzo} password=${POSTGRES_PASSWORD:-hanzo123} host=postgres port=5432 sslmode=disable dbname=iam
+    volumes:
+      # Mount source code for hot reload
+      - ../iam:/go/src/casdoor:rw
+      - ../iam/web:/web:rw
+      - iam_data:/conf
+    command: ["/go/src/casdoor/server"]
+
+# Additional volumes for development
+volumes:
+  # Log volumes
+  router_logs:
+  chat_logs:
+  cloud_logs:
+  search_logs:
+  build_logs:
+  
+  # Data volumes
+  chat_uploads:
+  build_workspace:
+  iam_data:
+
+# Ensure we use the same network
+networks:
+  hanzo-network:
+    name: hanzo-network
+    external: true
