@@ -221,12 +221,14 @@ services:
       - USE_HOST_NETWORK=false
       - SSH_HOSTNAME=localhost
       - DISABLE_TELEM=true
-      - LLM_API_KEY=${OPENAI_API_KEY:-}
+      - LLM_API_KEY=sk-router-master-hanzo
+      - LLM_BASE_URL=http://router:4000/v1
       - AGENT_MEMORY_ENABLED=true
       - FILE_STORE_PATH=/app/data
     volumes:
       - ide_workspace:/opt/workspace
       - /var/run/docker.sock:/var/run/docker.sock
+      # - ./config/ide-config.toml:/app/config.toml:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -386,11 +388,11 @@ services:
   #   networks:
   #     - hanzo-network
 
-  # Hanzo Runtime - AI Agent Runtime
+  # Hanzo Runtime - AI Agent Runtime (Mock for now)
   runtime:
     build:
-      context: ../runtime
-      dockerfile: Dockerfile.runtime.fixed
+      context: ./runtime
+      dockerfile: Dockerfile
     container_name: hanzo-runtime
     environment:
       - NODE_ENV=production
@@ -422,10 +424,10 @@ services:
       retries: 3
       start_period: 40s
 
-  # Hanzo IAM - Identity and Access Management
+  # Hanzo IAM - Identity and Access Management (Mock for now)
   iam:
     build:
-      context: ../iam
+      context: ./iam
       dockerfile: Dockerfile
     container_name: hanzo-iam
     ports:

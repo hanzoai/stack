@@ -1,0 +1,26 @@
+{
+  "name": "hanzo-stack-tests",
+  "version": "1.0.0",
+  "description": "Integration tests for Hanzo AI Stack",
+  "scripts": {
+    "test": "jest",
+    "test:integration": "./tests/run-integration-tests.sh",
+    "test:router": "jest tests/integration/router.test.js",
+    "test:ide": "jest tests/integration/ide.test.js",
+    "test:stack": "jest tests/integration/full-stack.test.js",
+    "test:watch": "jest --watch"
+  },
+  "devDependencies": {
+    "@jest/globals": "^29.7.0",
+    "jest": "^29.7.0",
+    "node-fetch": "^2.7.0"
+  },
+  "jest": {
+    "testEnvironment": "node",
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
+    "verbose": true,
+    "testTimeout": 30000
+  }
+}

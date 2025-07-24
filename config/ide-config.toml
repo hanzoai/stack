@@ -1,0 +1,94 @@
+###################### IDE Configuration for Hanzo Stack ######################
+#
+# This configuration file sets up IDE to use the Hanzo Router as its LLM backend
+#
+##############################################################################
+
+#################################### LLM #####################################
+# Configure IDE to use Hanzo Router as the LLM gateway
+##############################################################################
+[llm]
+# Point to any available model through the router
+model = "gpt-4o"
+
+# Use the router master key for authentication
+api_key = "sk-router-master-hanzo"
+
+# Point to the Hanzo router endpoint
+base_url = "http://router:4000/v1"
+
+# Enable retries for robustness
+num_retries = 8
+retry_min_wait = 15
+retry_max_wait = 120
+
+# Temperature for consistent outputs
+temperature = 0.0
+
+# Enable prompt caching if supported
+caching_prompt = true
+
+# Disable vision for cost reduction (optional)
+disable_vision = false
+
+# Use native tool calling
+native_tool_calling = true
+
+#################################### Core ####################################
+# General core configurations
+##############################################################################
+[core]
+# Base path for the workspace
+workspace_base = "/opt/workspace"
+
+# Enable browser environment
+enable_browser = true
+
+# Maximum iterations
+max_iterations = 500
+
+# Default agent
+default_agent = "CodeActAgent"
+
+#################################### Agent ###################################
+# Agent configuration
+##############################################################################
+[agent]
+# Enable all tools
+enable_browsing = true
+enable_llm_editor = false
+enable_editor = true
+enable_jupyter = true
+enable_cmd = true
+enable_think = true
+enable_finish = true
+enable_history_truncation = true
+
+#################################### Sandbox #################################
+# Sandbox configuration
+##############################################################################
+[sandbox]
+# Sandbox timeout
+timeout = 120
+
+# Container image
+base_container_image = "nikolaik/python-nodejs:python3.12-nodejs22"
+
+# Use host network to access other Hanzo services
+use_host_network = false
+
+# Enable auto linting
+enable_auto_lint = false
+
+# Initialize plugins
+initialize_plugins = true
+
+#################################### Security ################################
+# Security configuration
+##############################################################################
+[security]
+# Disable confirmation mode for automated operation
+confirmation_mode = false
+
+# Enable security analyzer
+enable_security_analyzer = false

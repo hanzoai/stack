@@ -1,4 +1,5 @@
-import { describe, it, expect, beforeAll } from 'vitest'
+const { describe, it, expect } = require('@jest/globals')
+const fetch = require('node-fetch')
 
 describe('Hanzo Router (LLM Gateway)', () => {
   const ROUTER_URL = 'http://localhost:4000'

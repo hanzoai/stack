@@ -7,12 +7,12 @@ import json
 from typing import Dict, Any
 
 # Service URLs from environment
-API_URL = "http://api:8000"
-CLOUD_URL = "http://cloud:3000"
-CHAT_URL = "http://chat:3081"
-LLM_GATEWAY_URL = "http://llm-gateway:4000"
-SEARCH_URL = "http://search:3000"
-IAM_URL = "http://iam:8000"
+API_URL = "http://localhost:8000"
+CLOUD_URL = "http://localhost:3001"
+CHAT_URL = "http://localhost:3081"
+LLM_GATEWAY_URL = "http://localhost:4000"
+SEARCH_URL = "http://localhost:3000"
+IAM_URL = "http://localhost:8080"
 
 
 class TestFullStackIntegration:
@@ -34,7 +34,7 @@ class TestFullStackIntegration:
                 "messages": [{"role": "user", "content": "Hello"}],
                 "mock_response": True  # Use mock in test mode
             },
-            headers={"Authorization": "Bearer test-key"}
+            headers={"Authorization": "Bearer sk-router-master-hanzo"}
         )
         assert response.status_code == 200
         data = response.json()
@@ -48,7 +48,7 @@ class TestFullStackIntegration:
                 "messages": [{"role": "user", "content": "Hello"}],
                 "mock_response": True
             },
-            headers={"Authorization": "Bearer test-key"}
+            headers={"Authorization": "Bearer sk-router-master-hanzo"}
         )
         assert response.status_code == 200
         
