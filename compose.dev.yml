@@ -214,31 +214,33 @@ services:
     networks:
       - hanzo-network
 
-    # Hanzo Runtime - Development mode
-    runtime:
-      build:
-        context: ../runtime
-        dockerfile: Dockerfile.runtime
-        target: development
-      environment:
-        - NODE_ENV=development
-        - DEBUG=true
-        - LOG_LEVEL=debug
-        # Additional development environment variables
-        - WATCH_MODE=true
-        - HOT_RELOAD=true
-      volumes:
-        # Mount source code for hot reload
-        - ../runtime:/app:rw
-        - /app/node_modules
-        - /app/dist
-        # Mount apps source
-        - ../runtime/apps:/app/apps:rw
-        - ../runtime/libs:/app/libs:rw
-        # Persist development data
-        - ./data/runtime:/app/data:rw
-        - ./logs/runtime:/app/logs:rw
-      command: ["pnpm", "nx", "serve", "api", "--watch"]
+  # Hanzo Runtime - Development mode
+  runtime:
+    build:
+      context: ../runtime
+      dockerfile: Dockerfile.runtime
+      target: development
+    environment:
+      - NODE_ENV=development
+      - DEBUG=true
+      - LOG_LEVEL=debug
+      # Additional development environment variables
+      - WATCH_MODE=true
+      - HOT_RELOAD=true
+    volumes:
+      # Mount source code for hot reload
+      - ../runtime:/app:rw
+      - /app/node_modules
+      - /app/dist
+      # Mount apps source
+      - ../runtime/apps:/app/apps:rw
+      - ../runtime/libs:/app/libs:rw
+      # Persist development data
+      - ./data/runtime:/app/data:rw
+      - ./logs/runtime:/app/logs:rw
+    command: ["pnpm", "nx", "serve", "api", "--watch"]
+    networks:
+      - hanzo-network
 
   # Add development tools
   adminer:

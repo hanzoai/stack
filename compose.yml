@@ -1,5 +1,6 @@
 # Hanzo Stack - Production Compose
 # Uses pre-built images from Docker Hub / GitHub Container Registry
+# Note: Most Hanzo services need to be built and pushed to ghcr.io first
 
 services:
   # Core Infrastructure
@@ -96,9 +97,9 @@ services:
     networks:
       - hanzo-network
 
-  # Hanzo Router (LLM Gateway) - Using local Hanzo router
+  # Hanzo Router (LLM Gateway)
   router:
-    image: ghcr.io/hanzoai/llm:latest
+    image: ghcr.io/hanzoai/router:latest
     container_name: hanzo-router
     ports:
       - "${ROUTER_PORT:-4000}:4000"
@@ -169,49 +170,43 @@ services:
     networks:
       - hanzo-network
 
-  # Hanzo Search - AI-powered search engine (build issues)
-  # search:
-  #   build:
-  #     context: ../search
-  #     dockerfile: Dockerfile
-  #   container_name: hanzo-search
-  #   ports:
-  #     - "${SEARCH_PORT:-3000}:3000"
-  #   environment:
-  #     - NEXT_PUBLIC_SEARCH_API_PROVIDER=${SEARCH_API_PROVIDER:-tavily}
-  #     - NEXT_PUBLIC_SEARCH_API_KEY=${SEARCH_API_KEY:-}
-  #     - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL:-}
-  #     - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/search
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   networks:
-  #     - hanzo-network
+  # Hanzo Search - AI-powered search engine
+  search:
+    image: ghcr.io/hanzoai/search:latest
+    container_name: hanzo-search
+    ports:
+      - "${SEARCH_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_SEARCH_API_PROVIDER=${SEARCH_API_PROVIDER:-tavily}
+      - NEXT_PUBLIC_SEARCH_API_KEY=${SEARCH_API_KEY:-}
+      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL:-}
+      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/search
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hanzo-network
 
-  # Hanzo Cloud - Infrastructure management (build issues)
-  # cloud:
-  #   build:
-  #     context: ../cloud
-  #     dockerfile: Dockerfile
-  #   container_name: hanzo-cloud
-  #   ports:
-  #     - "${CLOUD_PORT:-3001}:3001"
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/cloud
-  #     - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-hanzo-cloud-secret}
-  #     - NEXTAUTH_URL=http://localhost:3001
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   networks:
-  #     - hanzo-network
+  # Hanzo Cloud - Infrastructure management
+  cloud:
+    image: ghcr.io/hanzoai/cloud:latest
+    container_name: hanzo-cloud
+    ports:
+      - "${CLOUD_PORT:-3001}:3001"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/cloud
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-hanzo-cloud-secret}
+      - NEXTAUTH_URL=http://localhost:3001
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hanzo-network
 
   # Hanzo IDE - AI Development Assistant
   ide:
-    build:
-      context: ../ide
-      dockerfile: app/dev/containers/app/Dockerfile
+    image: ghcr.io/hanzoai/ide:latest
     container_name: hanzo-ide
     ports:
       - "${IDE_PORT:-3002}:3000"
@@ -278,9 +273,7 @@ services:
 
   # Hanzo Analytics - Privacy-focused analytics platform
   analytics:
-    build:
-      context: ../analytics
-      dockerfile: Dockerfile
+    image: ghcr.io/hanzoai/analytics:latest
     container_name: hanzo-analytics
     ports:
       - "${ANALYTICS_PORT:-3090}:3000"
@@ -329,70 +322,62 @@ services:
     networks:
       - hanzo-network
 
-  # Hanzo Agent - Multi-agent workflow orchestration (needs Dockerfile)
-  # agent:
-  #   build:
-  #     context: ../agent
-  #     dockerfile: Dockerfile
-  #   container_name: hanzo-agent
-  #   ports:
-  #     - "${AGENT_PORT:-8001}:8001"
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/agent
-  #     - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-  #     - LLM_API_KEY=${OPENAI_API_KEY:-}
-  #     - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - hanzo-network
+  # Hanzo Agent - Multi-agent workflow orchestration
+  agent:
+    image: ghcr.io/hanzoai/agent:latest
+    container_name: hanzo-agent
+    ports:
+      - "${AGENT_PORT:-8001}:8001"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/agent
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - LLM_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hanzo-network
 
-  # Hanzo Flow - Visual AI workflow builder (needs Dockerfile)
-  # flow:
-  #   build:
-  #     context: ../flow
-  #     dockerfile: Dockerfile
-  #   container_name: hanzo-flow
-  #   ports:
-  #     - "${FLOW_PORT:-3010}:3010"
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/flow
-  #     - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-hanzo-flow-secret}
-  #     - NEXTAUTH_URL=http://localhost:3010
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #   networks:
-  #     - hanzo-network
+  # Hanzo Flow - Visual AI workflow builder
+  flow:
+    image: ghcr.io/hanzoai/flow:latest
+    container_name: hanzo-flow
+    ports:
+      - "${FLOW_PORT:-3010}:3010"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/flow
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-hanzo-flow-secret}
+      - NEXTAUTH_URL=http://localhost:3010
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hanzo-network
 
-  # Hanzo API - Core API services (needs Dockerfile)
-  # api:
-  #   build:
-  #     context: ../api
-  #     dockerfile: Dockerfile
-  #   container_name: hanzo-api
-  #   ports:
-  #     - "${API_PORT:-8000}:8000"
-  #   environment:
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/api
-  #     - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-  #     - JWT_SECRET=${JWT_SECRET:-hanzo-api-secret}
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #   networks:
-  #     - hanzo-network
+  # Hanzo API - Core API services
+  api:
+    image: ghcr.io/hanzoai/api:latest
+    container_name: hanzo-api
+    ports:
+      - "${API_PORT:-8000}:8000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/api
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - JWT_SECRET=${JWT_SECRET:-hanzo-api-secret}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hanzo-network
 
-  # Hanzo Runtime - AI Agent Runtime (Mock for now)
+  # Hanzo Runtime - AI Agent Runtime
   runtime:
-    build:
-      context: ./runtime
-      dockerfile: Dockerfile
+    image: ghcr.io/hanzoai/runtime:latest
     container_name: hanzo-runtime
     environment:
       - NODE_ENV=production
@@ -424,11 +409,9 @@ services:
       retries: 3
       start_period: 40s
 
-  # Hanzo IAM - Identity and Access Management (Mock for now)
+  # Hanzo IAM - Identity and Access Management
   iam:
-    build:
-      context: ./iam
-      dockerfile: Dockerfile
+    image: ghcr.io/hanzoai/iam:latest
     container_name: hanzo-iam
     ports:
       - "${IAM_PORT:-8080}:8080"

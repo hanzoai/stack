@@ -11,6 +11,7 @@ NC := \033[0m # No Color
 # Default compose files
 COMPOSE := docker compose
 COMPOSE_DEV := docker compose -f compose.yml -f compose.dev.yml
+COMPOSE_INFRA := docker compose -f compose.infra.yml
 
 # Default target
 .DEFAULT_GOAL := help
@@ -22,7 +23,8 @@ help:
 	@echo ""
 	@echo "$(YELLOW)Quick Start:$(NC)"
 	@echo "  make setup         - Configure environment from template"
-	@echo "  make up            - Start all services (production mode)"
+	@echo "  make infra         - Start infrastructure services only"
+	@echo "  make up            - Start all services (requires ghcr.io images)"
 	@echo "  make dev           - Start development mode with hot reload"
 	@echo "  make status        - Check service status"
 	@echo ""
@@ -81,6 +83,17 @@ up: setup
 	@echo "$(GREEN)Waiting for services to be healthy...$(NC)"
 	@./scripts/wait-for-healthy.sh
 	@make status
+
+.PHONY: infra
+infra: setup
+	@echo "$(BLUE)Starting infrastructure services...$(NC)"
+	@$(COMPOSE_INFRA) up -d
+	@echo "$(GREEN)Infrastructure services started!$(NC)"
+	@echo "PostgreSQL: localhost:5432"
+	@echo "Redis: localhost:6379"
+	@echo "MongoDB: localhost:27017"
+	@echo "MinIO: localhost:9000 (Console: localhost:9001)"
+	@echo "Meilisearch: localhost:7700"
 
 .PHONY: start
 start: up
@@ -258,8 +271,8 @@ ci-test:
 
 .PHONY: build
 build:
-	@echo "$(BLUE)Building all services...$(NC)"
-	@$(COMPOSE_DEV) build
+	@echo "$(BLUE)Pulling all images...$(NC)"
+	@$(COMPOSE) pull
 
 # ===== Utilities =====
 .PHONY: check-ports
