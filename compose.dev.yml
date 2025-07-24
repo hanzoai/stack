@@ -187,7 +187,7 @@ services:
   # Hanzo Build - Development mode (OpenHands)
   build:
     build:
-      context: ../build
+      context: ../dev
       dockerfile: containers/app/Dockerfile
       target: development
     container_name: hanzo-build
@@ -306,6 +306,13 @@ services:
 
 # Additional volumes for development
 volumes:
+  # Database volumes
+  postgres_data:
+  redis_data:
+  mongodb_data:
+  minio_data:
+  meilisearch_data:
+  
   # Log volumes
   router_logs:
   chat_logs:

@@ -1,6 +1,5 @@
-# Hanzo Stack - Production Compose
-# Uses pre-built images from Docker Hub / GitHub Container Registry
-# Note: Most Hanzo services need to be built and pushed to ghcr.io first
+# Hanzo Stack - Working Services Only
+# Uses only services with available ghcr.io images
 
 services:
   # Core Infrastructure
@@ -13,7 +12,6 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-hanzo}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d:ro
     ports:
       - "${POSTGRES_PORT:-5432}:5432"
     healthcheck:
@@ -44,15 +42,15 @@ services:
     image: mongo:7
     container_name: hanzo-mongodb
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-hanzo}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-hanzo123}
-      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-hanzo}
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME:-hanzo}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-hanzo123}
+      - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-hanzo}
     volumes:
       - mongodb_data:/data/db
     ports:
-      - "${MONGODB_PORT:-27017}:27017"
+      - "${MONGO_PORT:-27017}:27017"
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -83,8 +81,9 @@ services:
     image: getmeili/meilisearch:v1.6
     container_name: hanzo-meilisearch
     environment:
-      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-hanzo-meili-master}
       - MEILI_ENV=${MEILI_ENV:-development}
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-masterKey}
+      - MEILI_NO_ANALYTICS=true
     volumes:
       - meilisearch_data:/meili_data
     ports:
@@ -97,340 +96,200 @@ services:
     networks:
       - hanzo-network
 
-  # Hanzo Router (LLM Gateway)
+  # Hanzo Services with Available Images
   router:
     image: ghcr.io/hanzoai/router:latest
     container_name: hanzo-router
     ports:
       - "${ROUTER_PORT:-4000}:4000"
     environment:
-      - ROUTER_MASTER_KEY=${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
-      - ROUTER_MODE=${ROUTER_MODE:-PRODUCTION}
-      - UI_USERNAME=${ROUTER_UI_USERNAME:-admin}
-      - UI_PASSWORD=${ROUTER_UI_PASSWORD:-admin}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}
       - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
+      - MASTER_KEY=${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
+      # LLM Provider Keys (from .env)
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - VERTEX_PROJECT=${VERTEX_PROJECT}
+      - VERTEX_LOCATION=${VERTEX_LOCATION}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - COHERE_API_KEY=${COHERE_API_KEY}
+      - REPLICATE_API_KEY=${REPLICATE_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AZURE_API_KEY=${AZURE_API_KEY}
+      - AZURE_API_BASE=${AZURE_API_BASE}
+      - AZURE_API_VERSION=${AZURE_API_VERSION}
+      # Router Configuration
+      - LITELLM_MODE=PRODUCTION
+      - DATABASE_SCHEMA_NAME=hanzo_router
+      - STORE_MODEL_IN_DB=true
+      - LITELLM_DROP_PARAMS=true
+      - LITELLM_LOCAL_MODEL_COST_MAP=true
+      - SET_VERBOSE=true
+      - ACTIONS_SEED_ENABLED=true
+      - UI_USERNAME=${ROUTER_UI_USERNAME:-admin}
+      - UI_PASSWORD=${ROUTER_UI_PASSWORD:-admin}
+      - CUSTOM_EXTENSIONS_PATH=/app/extensions.py
     volumes:
-      - ./config/router-config-hanzo.yaml:/app/config.yaml:ro
-    command: ["--config", "/app/config.yaml", "--port", "4000"]
+      - ./config/router-config.yaml:/app/config.yaml:ro
+      - ./config/router-extensions.py:/app/extensions.py:ro
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
-    healthcheck:
-      test: ["CMD", "python", "-c", "import requests; requests.get('http://localhost:4000/health/liveliness').raise_for_status()"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 30s
+    command: ["--config", "/app/config.yaml", "--port", "4000", "--telemetry", "False"]
     networks:
       - hanzo-network
 
-  # Hanzo Chat - AI Chat Platform
   chat:
     image: ghcr.io/hanzoai/chat:latest
     container_name: hanzo-chat
     ports:
       - "${CHAT_PORT:-3081}:3080"
     environment:
-      - NODE_ENV=${NODE_ENV:-production}
-      - MONGO_URI=mongodb://${MONGO_ROOT_USERNAME:-hanzo}:${MONGO_ROOT_PASSWORD:-hanzo123}@mongodb:27017/LibreChat?authSource=admin
-      - REDIS_URI=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - ENDPOINTS=openAI,anthropic,azureOpenAI,google
-      - PROXY=http://router:4000/v1
-      - TITLE=Hanzo Chat
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_chat
+      - MONGO_URI=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/${MONGO_DATABASE:-hanzo}?authSource=admin
+      - MEILI_URL=http://meilisearch:7700
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-masterKey}
+      - ROUTER_URL=http://router:4000/v1
+      - ALLOW_SOCIAL_LOGIN=false
+      - CREDS_IV=${CREDS_IV}
+      - CREDS_KEY=${CREDS_KEY}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret}
+      - DOMAIN_CLIENT=http://localhost:3081
+      - DOMAIN_SERVER=http://localhost:3081
+      - NO_INDEX=true
+      - DEBUG_LOGGING=true
+      - DEBUG_CONSOLE=true
+      - SEARCH_ENABLED=false
+      - REGISTRATION_ENABLED=true
+      - CHECK_BALANCE=false
+      - TITLE_CONVO=true
       - CUSTOM_FOOTER="Powered by Hanzo AI"
-      - ALLOW_REGISTRATION=true
-      - JWT_SECRET=${JWT_SECRET:-hanzo-chat-secret-key-change-in-production}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-hanzo-chat-refresh-secret-key-change-in-production}
-      - CREDS_KEY=${CREDS_KEY:-hanzo-creds-key-change-in-production}
-      - CREDS_IV=${CREDS_IV:-hanzo-creds-iv-change-in-production}
+      - HELP_AND_FAQ_URL=https://hanzo.ai/help
+      - SHOW_BIRTHDAY_ICON=false
+      - ALLOW_MESSAGE_EDITING=true
+      - ALLOW_MESSAGE_DELETION=true
+      - ALLOW_UNVERIFIED_EMAIL_LOGIN=true
+      - APP_TITLE=Hanzo Chat
+      - ENDPOINTS=router
     volumes:
-      - chat_uploads:/app/client/public/uploads
-      - chat_logs:/app/logs
-      - ./configs/librechat.yaml:/app/librechat.yaml:ro
+      - chat_uploads:/app/uploads
     depends_on:
       mongodb:
         condition: service_healthy
-      redis:
+      meilisearch:
         condition: service_healthy
       router:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3080/api/health', res => process.exit(res.statusCode === 200 ? 0 : 1))"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+        condition: service_started
     networks:
       - hanzo-network
 
-  # Hanzo Search - AI-powered search engine
-  search:
-    image: ghcr.io/hanzoai/search:latest
-    container_name: hanzo-search
-    ports:
-      - "${SEARCH_PORT:-3000}:3000"
-    environment:
-      - NEXT_PUBLIC_SEARCH_API_PROVIDER=${SEARCH_API_PROVIDER:-tavily}
-      - NEXT_PUBLIC_SEARCH_API_KEY=${SEARCH_API_KEY:-}
-      - NEXT_PUBLIC_SUPABASE_URL=${SUPABASE_URL:-}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${SUPABASE_ANON_KEY:-}
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/search
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - hanzo-network
-
-  # Hanzo Cloud - Infrastructure management
-  cloud:
-    image: ghcr.io/hanzoai/cloud:latest
-    container_name: hanzo-cloud
-    ports:
-      - "${CLOUD_PORT:-3001}:3001"
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/cloud
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-hanzo-cloud-secret}
-      - NEXTAUTH_URL=http://localhost:3001
-    depends_on:
-      postgres:
-        condition: service_healthy
-    networks:
-      - hanzo-network
-
-  # Hanzo IDE - AI Development Assistant
-  ide:
-    image: ghcr.io/hanzoai/ide:latest
-    container_name: hanzo-ide
-    ports:
-      - "${IDE_PORT:-3002}:3000"
-    environment:
-      - WORKSPACE_MOUNT_PATH=/workspace
-      - SANDBOX_USER_ID=1000
-      - USE_HOST_NETWORK=false
-      - SSH_HOSTNAME=localhost
-      - DISABLE_TELEM=true
-      - LLM_API_KEY=sk-router-master-hanzo
-      - LLM_BASE_URL=http://router:4000/v1
-      - AGENT_MEMORY_ENABLED=true
-      - FILE_STORE_PATH=/app/data
-    volumes:
-      - ide_workspace:/opt/workspace
-      - /var/run/docker.sock:/var/run/docker.sock
-      # - ./config/ide-config.toml:/app/config.toml:ro
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - hanzo-network
-
-  # Hanzo Runtime - Code execution sandbox (temporarily disabled due to build issues)
-  # runtime:
-  #   build:
-  #     context: ../runtime
-  #     dockerfile: Dockerfile.runtime.fixed
-  #   container_name: hanzo-runtime
-  #   ports:
-  #     - "${RUNTIME_PORT:-8002}:8002"
-  #   environment:
-  #     - NODE_ENV=${NODE_ENV:-production}
-  #     - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/runtime
-  #     - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-  #     - MINIO_ENDPOINT=minio:9000
-  #     - MINIO_ACCESS_KEY=${MINIO_ROOT_USER:-minioadmin}
-  #     - MINIO_SECRET_KEY=${MINIO_ROOT_PASSWORD:-minioadmin}
-  #     - RUNTIME_MODE=production
-  #     - MAX_SANDBOXES=10
-  #     - SANDBOX_TIMEOUT=300000
-  #   volumes:
-  #     - runtime_data:/app/data
-  #     - runtime_sandboxes:/app/sandboxes
-  #     - /var/run/docker.sock:/var/run/docker.sock
-  #   depends_on:
-  #     postgres:
-  #       condition: service_healthy
-  #     redis:
-  #       condition: service_healthy
-  #     minio:
-  #       condition: service_healthy
-  #   healthcheck:
-  #     test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - hanzo-network
-
-  # Hanzo Analytics - Privacy-focused analytics platform
   analytics:
     image: ghcr.io/hanzoai/analytics:latest
     container_name: hanzo-analytics
     ports:
-      - "${ANALYTICS_PORT:-3090}:3000"
+      - "${ANALYTICS_PORT:-3010}:3000"
     environment:
-      - DATABASE_URL=${ANALYTICS_DATABASE_URL:-postgresql://analytics:analytics123@postgres:5432/analytics}
-      - DATABASE_TYPE=postgresql
-      - APP_SECRET=${ANALYTICS_SECRET:-hanzo-analytics-secret-key-change-in-production}
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-      - DISABLE_BOT_CHECK=${ANALYTICS_DISABLE_BOT_CHECK:-false}
-      - DISABLE_LOGIN=${ANALYTICS_DISABLE_LOGIN:-false}
-      - DISABLE_UI=${ANALYTICS_DISABLE_UI:-false}
-      - PRIVATE_MODE=${ANALYTICS_PRIVATE_MODE:-false}
-      - CLOUD_MODE=${ANALYTICS_CLOUD_MODE:-false}
-      - DEFAULT_LOCALE=${ANALYTICS_LOCALE:-en-US}
-      - TRACKER_SCRIPT_NAME=${ANALYTICS_TRACKER_SCRIPT:-hanzo.js}
-      - COLLECT_API_ENDPOINT=${ANALYTICS_COLLECT_ENDPOINT:-/api/send}
-      - HOSTNAME=0.0.0.0
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/heartbeat"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - hanzo-network
-
-  # Nginx Reverse Proxy with Analytics Integration
-  nginx:
-    image: nginx:alpine
-    container_name: hanzo-nginx
-    ports:
-      - "${NGINX_HTTP_PORT:-80}:80"
-      - "${NGINX_HTTPS_PORT:-443}:443"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./nginx/chat-analytics.conf:/etc/nginx/conf.d/chat.conf:ro
-      - ./nginx/ide-analytics.conf:/etc/nginx/conf.d/ide.conf:ro
-    depends_on:
-      - chat
-      - ide
-      - analytics
-    networks:
-      - hanzo-network
-
-  # Hanzo Agent - Multi-agent workflow orchestration
-  agent:
-    image: ghcr.io/hanzoai/agent:latest
-    container_name: hanzo-agent
-    ports:
-      - "${AGENT_PORT:-8001}:8001"
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/agent
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-      - LLM_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    networks:
-      - hanzo-network
-
-  # Hanzo Flow - Visual AI workflow builder
-  flow:
-    image: ghcr.io/hanzoai/flow:latest
-    container_name: hanzo-flow
-    ports:
-      - "${FLOW_PORT:-3010}:3010"
-    environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/flow
-      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-hanzo-flow-secret}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_analytics
       - NEXTAUTH_URL=http://localhost:3010
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-nextauth-secret}
+      - DISABLE_SIGNUPS=false
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - hanzo-network
 
-  # Hanzo API - Core API services
-  api:
-    image: ghcr.io/hanzoai/api:latest
-    container_name: hanzo-api
+  ide:
+    image: ghcr.io/hanzoai/ide:latest
+    container_name: hanzo-ide
     ports:
-      - "${API_PORT:-8000}:8000"
+      - "${IDE_PORT:-3005}:3001"
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/api
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-      - JWT_SECRET=${JWT_SECRET:-hanzo-api-secret}
+      - LLM_API_KEY=${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
+      - LLM_BASE_URL=http://router:4000
+      - WORKSPACE_MOUNT_PATH=/workspace
+      - SANDBOX_USER_ID=1000
+      - USE_HOST_NETWORK=false
+      - RUN_AS_OPENHANDS=true
+      - RUNTIME_CONTAINER_IMAGE=ghcr.io/hanzoai/runtime:latest
+      - SANDBOX_TYPE=exec
+      - WORKSPACE_BASE=/workspace
+      - MOUNT_WORKSPACE=true
+      - MOUNT_CACHE=true
+      - CACHE_DIR=/tmp/cache
+      - BROWSERGYM_CDN=https://browser-use-api-experimental.netlify.app
+      - INIT_PLUGINS=codeact,jupyter,swe_agent
+    volumes:
+      - ./workspace:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+      router:
+        condition: service_started
     networks:
       - hanzo-network
 
-  # Hanzo Runtime - AI Agent Runtime
   runtime:
     image: ghcr.io/hanzoai/runtime:latest
     container_name: hanzo-runtime
-    environment:
-      - NODE_ENV=production
-      - PORT=8002
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/runtime
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-      - JWT_SECRET=${JWT_SECRET:-hanzo-runtime-secret}
-      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
-      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     ports:
-      - "${RUNTIME_PORT:-8002}:8002"
+      - "${RUNTIME_PORT:-3003}:8080"
+    environment:
+      - RUNTIME_CONTAINER_IMAGE=ghcr.io/hanzoai/runtime:latest
+      - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
-      - runtime_data:/app/data
-      - runtime_sandboxes:/app/sandboxes
-      - runtime_logs:/app/logs
       - /var/run/docker.sock:/var/run/docker.sock
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
     networks:
       - hanzo-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-  # Hanzo IAM - Identity and Access Management
   iam:
     image: ghcr.io/hanzoai/iam:latest
     container_name: hanzo-iam
     ports:
-      - "${IAM_PORT:-8080}:8080"
+      - "${IAM_PORT:-8000}:8000"
     environment:
-      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/iam
-      - RUNNING_IN_DOCKER=true
+      - driverName=postgres
+      - dataSourceName=user=${POSTGRES_USER:-hanzo} password=${POSTGRES_PASSWORD:-hanzo123} host=postgres port=5432 sslmode=disable dbname=${POSTGRES_DB:-hanzo}_iam
+      - appname=Hanzo IAM
+      - httpport=8000
+      - runmode=dev
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - hanzo-network
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 40s
 
-# Volumes
+  # Nginx Proxy with Analytics
+  nginx:
+    image: nginx:alpine
+    container_name: hanzo-nginx
+    ports:
+      - "80:80"
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./config/nginx-default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - router
+      - chat
+      - analytics
+      - ide
+      - runtime
+      - iam
+    networks:
+      - hanzo-network
+
 volumes:
   postgres_data:
   redis_data:
@@ -438,21 +297,7 @@ volumes:
   minio_data:
   meilisearch_data:
   chat_uploads:
-  chat_logs:
-  ide_workspace:
-  ide_config:
-  search_data:
-  cloud_data:
-  agent_data:
-  flow_data:
-  api_data:
-  iam_data:
-  runtime_data:
-  runtime_sandboxes:
-  runtime_logs:
 
-# Network
 networks:
   hanzo-network:
-    name: hanzo-network
-    external: true
+    driver: bridge

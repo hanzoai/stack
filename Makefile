@@ -10,7 +10,7 @@ NC := \033[0m # No Color
 
 # Default compose files
 COMPOSE := docker compose
-COMPOSE_DEV := docker compose -f compose.yml -f compose.dev.yml
+COMPOSE_DEV := docker compose -f compose.dev.yml
 COMPOSE_INFRA := docker compose -f compose.infra.yml
 
 # Default target

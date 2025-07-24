@@ -79,7 +79,7 @@ model_list:
       model: together_ai/mixtral-8x22b-instruct
       api_key: os.environ/TOGETHER_API_KEY
 
-# Router Settings
+# Router Settings with Hanzo Console Observability
 router_settings:
   routing_strategy: simple-shuffle
   model_group_alias:
@@ -88,9 +88,6 @@ router_settings:
     claude-3.5: ["claude-3-5-sonnet-20241022", "claude-3-5-haiku-20241022"]
     gemini: ["gemini-pro", "gemini-pro-vision"]
     llama: ["llama-3.2-90b-text-preview", "llama-3.2-70b-versatile"]
-
-# Router Settings with Hanzo Console Observability
-router_settings:
   drop_params: true
   max_retries: 2
   request_timeout: 600
