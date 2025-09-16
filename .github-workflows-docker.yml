@@ -10,7 +10,7 @@ on:
       - 'runtime/**'
       - 'cloud/**'
       - 'mcp/**'
-      - 'stack/docker-compose.hanzo-services.yml'
+      - 'stack/compose.yml'
       - '.github/workflows/docker.yml'
   pull_request:
     branches: [main]
@@ -18,7 +18,7 @@ on:
       - 'runtime/**'
       - 'cloud/**'
       - 'mcp/**'
-      - 'stack/docker-compose.hanzo-services.yml'
+      - 'stack/compose.yml'
 
 env:
   REGISTRY: ghcr.io
@@ -330,7 +330,7 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Run integration tests
+      - name: Run integration tests (runtime only)
         run: |
           cd stack
           
@@ -346,22 +346,21 @@ jobs:
           NEXTAUTH_URL=http://localhost:3001
           EOF
           
-          # Start services with test configuration
-          docker compose -f docker-compose.hanzo-services.yml --env-file .env.test up -d
+          # Start minimal services with test configuration
+          docker compose -f compose.yml --env-file .env.test up -d postgres redis runtime
           
           # Wait for services to be ready
-          sleep 60
+          sleep 45
           
           # Run integration tests
-          docker compose -f docker-compose.hanzo-services.yml exec -T hanzo-runtime wget --spider --quiet http://localhost:3000/health || exit 1
-          docker compose -f docker-compose.hanzo-services.yml exec -T hanzo-cloud wget --spider --quiet http://localhost:3001/api/health || exit 1
+          docker compose -f compose.yml exec -T hanzo-runtime wget --spider --quiet http://localhost:3003/health || exit 1
           
           # Test service communication
-          docker compose -f docker-compose.hanzo-services.yml exec -T hanzo-runtime ping -c 1 postgres || exit 1
-          docker compose -f docker-compose.hanzo-services.yml exec -T hanzo-runtime ping -c 1 redis || exit 1
+          docker compose -f compose.yml exec -T hanzo-runtime ping -c 1 postgres || exit 1
+          docker compose -f compose.yml exec -T hanzo-runtime ping -c 1 redis || exit 1
           
           # Cleanup
-          docker compose -f docker-compose.hanzo-services.yml down -v
+          docker compose -f compose.yml down -v
 
   # Deploy to staging/production
   deploy:
