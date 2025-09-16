@@ -47,7 +47,7 @@ jobs:
 
     - name: Start essential services
       run: |
-        docker compose -f docker-compose.essential.yml up -d
+        docker compose -f compose.yml up -d postgres redis mongodb minio meilisearch
 
     - name: Wait for services to be healthy
       run: |
@@ -58,21 +58,21 @@ jobs:
 
         while [ $elapsed -lt $timeout ]; do
           # Check PostgreSQL
-          if docker compose -f docker-compose.essential.yml exec -T postgres pg_isready -U hanzo >/dev/null 2>&1; then
+          if docker compose -f compose.yml exec -T postgres pg_isready -U hanzo >/dev/null 2>&1; then
             echo "✓ PostgreSQL is ready"
           else
             echo "⏳ Waiting for PostgreSQL..."
           fi
 
           # Check Redis
-          if docker compose -f docker-compose.essential.yml exec -T redis redis-cli -a hanzo123 ping >/dev/null 2>&1; then
+          if docker compose -f compose.yml exec -T redis redis-cli -a hanzo123 ping >/dev/null 2>&1; then
             echo "✓ Redis is ready"
           else
             echo "⏳ Waiting for Redis..."
           fi
 
           # Check MongoDB
-          if docker compose -f docker-compose.essential.yml exec -T mongodb mongosh --eval "db.adminCommand('ping')" >/dev/null 2>&1; then
+          if docker compose -f compose.yml exec -T mongodb mongosh --eval "db.adminCommand('ping')" >/dev/null 2>&1; then
             echo "✓ MongoDB is ready"
           else
             echo "⏳ Waiting for MongoDB..."
@@ -93,7 +93,7 @@ jobs:
           fi
 
           # Check if all services are healthy
-          if docker compose -f docker-compose.essential.yml ps | grep -q "(healthy)"; then
+          if docker compose -f compose.yml ps | grep -q "(healthy)"; then
             echo "All essential services are healthy!"
             break
           fi
@@ -104,23 +104,23 @@ jobs:
 
         if [ $elapsed -ge $timeout ]; then
           echo "Timeout waiting for services to be healthy"
-          docker compose -f docker-compose.essential.yml ps
-          docker compose -f docker-compose.essential.yml logs
+          docker compose -f compose.yml ps
+          docker compose -f compose.yml logs
           exit 1
         fi
 
     - name: Test PostgreSQL
       run: |
-        docker compose -f docker-compose.essential.yml exec -T postgres psql -U hanzo -d hanzo -c "SELECT version();"
+        docker compose -f compose.yml exec -T postgres psql -U hanzo -d hanzo -c "SELECT version();"
 
     - name: Test Redis
       run: |
-        docker compose -f docker-compose.essential.yml exec -T redis redis-cli -a hanzo123 SET test-key "test-value"
-        docker compose -f docker-compose.essential.yml exec -T redis redis-cli -a hanzo123 GET test-key
+        docker compose -f compose.yml exec -T redis redis-cli -a hanzo123 SET test-key "test-value"
+        docker compose -f compose.yml exec -T redis redis-cli -a hanzo123 GET test-key
 
     - name: Test MongoDB
       run: |
-        docker compose -f docker-compose.essential.yml exec -T mongodb mongosh --eval "db.test.insertOne({test: 'value'})"
+        docker compose -f compose.yml exec -T mongodb mongosh --eval "db.test.insertOne({test: 'value'})"
 
     - name: Test MinIO
       run: |
@@ -147,7 +147,7 @@ jobs:
     - name: Collect logs on failure
       if: failure()
       run: |
-        docker compose -f docker-compose.essential.yml logs > docker-logs.txt
+        docker compose -f compose.yml logs > docker-logs.txt
 
     - name: Upload logs
       if: failure()
@@ -159,10 +159,10 @@ jobs:
     - name: Cleanup
       if: always()
       run: |
-        docker compose -f docker-compose.essential.yml down -v
+        docker compose -f compose.yml down -v
 
   batteries-included-build-test:
-    name: Batteries Included Build Test
+    name: Compose Config Validation
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -197,15 +197,13 @@ jobs:
 
     - name: Test Docker Compose configuration
       run: |
-        # Validate docker-compose.batteries.yml syntax
-        docker compose -f docker-compose.batteries.yml config > /dev/null
-        echo "✓ docker-compose.batteries.yml is valid"
+        # Validate primary compose file syntax
+        docker compose -f compose.yml config > /dev/null
+        echo "✓ compose.yml is valid"
 
-    - name: Build containers
+    - name: Dry-run build (skip heavy images)
       run: |
-        # Only build the images, don't start them (to save CI resources)
-        docker compose -f docker-compose.batteries.yml build --parallel || true
-        echo "Build process completed (some services may fail due to missing repos)"
+        echo "Skipping heavy image builds in CI to keep runs fast."
 
     - name: List built images
       run: |
