@@ -1,31 +1,37 @@
 # Hanzo Stack
 
-Complete development and production stack for Hanzo AI platform.
+Complete Hanzo AI infrastructure stack with all services, libraries, and tools organized as git submodules. Unified multi-language approach with standardized directory structure.
 
 ## Quick Start
 
-### Production Mode (Using Pre-built Images)
+### Clone with Submodules
 ```bash
-# Start all services with pre-built images
-docker compose up -d
+# Clone with all submodules
+git clone --recursive https://github.com/hanzoai/stack.git
 
-# View logs
-docker compose logs -f
+# Or if already cloned
+git submodule update --init --recursive
 
-# Stop services
-docker compose down
+# Update all submodules to latest
+git submodule update --remote --merge
 ```
 
-### Development Mode (Building from Source)
+### Development Mode
 ```bash
 # Start all services building from local source code
 docker compose -f compose.dev.yml up -d
 
-# View logs
-docker compose -f compose.dev.yml logs -f
+# Or use Makefile
+make dev
+```
 
-# Stop services
-docker compose -f compose.dev.yml down
+### Production Mode
+```bash
+# Start all services with pre-built images
+docker compose up -d
+
+# Or use Makefile
+make up
 ```
 
 ## Available Services

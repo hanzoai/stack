@@ -1,0 +1,392 @@
+# GitHub Actions workflow for Hanzo AI Services
+# Builds, tests, and deploys Docker images for Runtime, Cloud, and MCP services
+
+name: Build and Deploy Hanzo Services
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'runtime/**'
+      - 'cloud/**'
+      - 'mcp/**'
+      - 'stack/docker-compose.hanzo-services.yml'
+      - '.github/workflows/docker.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'runtime/**'
+      - 'cloud/**'
+      - 'mcp/**'
+      - 'stack/docker-compose.hanzo-services.yml'
+
+env:
+  REGISTRY: ghcr.io
+  RUNTIME_IMAGE: ghcr.io/hanzoai/runtime
+  CLOUD_IMAGE: ghcr.io/hanzoai/cloud
+  MCP_IMAGE: ghcr.io/hanzoai/mcp
+
+jobs:
+  # Detect changes and set build matrix
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      runtime: ${{ steps.changes.outputs.runtime }}
+      cloud: ${{ steps.changes.outputs.cloud }}
+      mcp: ${{ steps.changes.outputs.mcp }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            runtime:
+              - 'runtime/**'
+            cloud:
+              - 'cloud/**'
+            mcp:
+              - 'mcp/**'
+
+  # Build and test Runtime service
+  build-runtime:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.runtime == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.RUNTIME_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and test Runtime image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./runtime
+          file: ./runtime/Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.RUNTIME_IMAGE }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-runtime-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-runtime-results.sarif'
+
+      - name: Test Runtime service
+        run: |
+          # Start test container
+          docker run -d --name runtime-test \
+            -p 3000:3000 \
+            -e NODE_ENV=production \
+            ${{ env.RUNTIME_IMAGE }}:${{ github.sha }}
+          
+          # Wait for service to start
+          sleep 30
+          
+          # Test health endpoint
+          curl -f http://localhost:3000/health || exit 1
+          
+          # Cleanup
+          docker stop runtime-test
+          docker rm runtime-test
+
+      - name: Push Runtime image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./runtime
+          file: ./runtime/Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Build and test Cloud service
+  build-cloud:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.cloud == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.CLOUD_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and test Cloud image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./cloud
+          file: ./cloud/Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.CLOUD_IMAGE }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-cloud-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-cloud-results.sarif'
+
+      - name: Test Cloud service
+        run: |
+          # Start test container
+          docker run -d --name cloud-test \
+            -p 3001:3001 \
+            -e NODE_ENV=production \
+            -e NEXTAUTH_SECRET=test-secret \
+            ${{ env.CLOUD_IMAGE }}:${{ github.sha }}
+          
+          # Wait for service to start
+          sleep 45
+          
+          # Test health endpoint
+          curl -f http://localhost:3001/api/health || exit 1
+          
+          # Cleanup
+          docker stop cloud-test
+          docker rm cloud-test
+
+      - name: Push Cloud image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./cloud
+          file: ./cloud/Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Build and test MCP service
+  build-mcp:
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.mcp == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.MCP_IMAGE }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=sha,prefix={{branch}}-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and test MCP image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./mcp
+          file: ./mcp/Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: false
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Run security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.MCP_IMAGE }}:${{ github.sha }}
+          format: 'sarif'
+          output: 'trivy-mcp-results.sarif'
+
+      - name: Upload Trivy scan results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: 'trivy-mcp-results.sarif'
+
+      - name: Test MCP service
+        run: |
+          # Start test container
+          docker run -d --name mcp-test \
+            -e NODE_ENV=production \
+            ${{ env.MCP_IMAGE }}:${{ github.sha }}
+          
+          # Wait for service to start
+          sleep 10
+          
+          # Check if container is running
+          docker ps | grep mcp-test || exit 1
+          
+          # Test MCP CLI
+          docker exec mcp-test hanzo-mcp --version || exit 1
+          
+          # Cleanup
+          docker stop mcp-test
+          docker rm mcp-test
+
+      - name: Push MCP image
+        if: github.event_name != 'pull_request'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./mcp
+          file: ./mcp/Dockerfile
+          target: production
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # Integration tests
+  integration-test:
+    runs-on: ubuntu-latest
+    needs: [build-runtime, build-cloud, build-mcp]
+    if: always() && (needs.build-runtime.result == 'success' || needs.build-cloud.result == 'success' || needs.build-mcp.result == 'success')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Run integration tests
+        run: |
+          cd stack
+          
+          # Create test environment file
+          cat > .env.test << EOF
+          POSTGRES_DB=hanzo_test
+          POSTGRES_USER=test_user
+          POSTGRES_PASSWORD=test_password
+          DATABASE_URL=postgresql://test_user:test_password@postgres:5432/hanzo_test
+          REDIS_PASSWORD=test_redis_password
+          REDIS_URL=redis://:test_redis_password@redis:6379
+          NEXTAUTH_SECRET=test-secret-key
+          NEXTAUTH_URL=http://localhost:3001
+          EOF
+          
+          # Start services with test configuration
+          docker compose -f docker-compose.hanzo-services.yml --env-file .env.test up -d
+          
+          # Wait for services to be ready
+          sleep 60
+          
+          # Run integration tests
+          docker compose -f docker-compose.hanzo-services.yml exec -T hanzo-runtime wget --spider --quiet http://localhost:3000/health || exit 1
+          docker compose -f docker-compose.hanzo-services.yml exec -T hanzo-cloud wget --spider --quiet http://localhost:3001/api/health || exit 1
+          
+          # Test service communication
+          docker compose -f docker-compose.hanzo-services.yml exec -T hanzo-runtime ping -c 1 postgres || exit 1
+          docker compose -f docker-compose.hanzo-services.yml exec -T hanzo-runtime ping -c 1 redis || exit 1
+          
+          # Cleanup
+          docker compose -f docker-compose.hanzo-services.yml down -v
+
+  # Deploy to staging/production
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [integration-test]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    steps:
+      - name: Deploy to production
+        run: |
+          echo "🚀 Deploying Hanzo AI services to production"
+          echo "Runtime image: ${{ env.RUNTIME_IMAGE }}:${{ github.sha }}"
+          echo "Cloud image: ${{ env.CLOUD_IMAGE }}:${{ github.sha }}"
+          echo "MCP image: ${{ env.MCP_IMAGE }}:${{ github.sha }}"
+          
+          # Add actual deployment commands here
+          # e.g., kubectl, docker-compose, helm, etc.
+
+  # Cleanup old images
+  cleanup:
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - name: Cleanup old images
+        run: |
+          echo "🧹 Cleaning up old container images"
+          # Add cleanup commands for old images
+          # Keep only the last 10 versions of each image

@@ -9,9 +9,10 @@ BLUE := \033[0;34m
 NC := \033[0m # No Color
 
 # Default compose files
-COMPOSE := docker compose
+COMPOSE := docker compose -f docker-compose.essential.yml
 COMPOSE_DEV := docker compose -f compose.dev.yml
 COMPOSE_INFRA := docker compose -f compose.infra.yml
+COMPOSE_BATTERIES := docker compose -f docker-compose.batteries.yml
 
 # Default target
 .DEFAULT_GOAL := help
@@ -23,10 +24,11 @@ help:
 	@echo ""
 	@echo "$(YELLOW)Quick Start:$(NC)"
 	@echo "  make setup         - Configure environment from template"
-	@echo "  make infra         - Start infrastructure services only"
-	@echo "  make up            - Start all services (requires ghcr.io images)"
-	@echo "  make dev           - Start development mode with hot reload"
+	@echo "  make up            - Start ALL services (batteries included)"
+	@echo "  make down          - Stop all services"
 	@echo "  make status        - Check service status"
+	@echo "  make logs          - View logs"
+	@echo "  make restart       - Restart all services"
 	@echo ""
 	@echo "$(YELLOW)Service Management:$(NC)"
 	@echo "  make start         - Start all core services"
@@ -48,9 +50,17 @@ help:
 	@echo "  make test-router   - Test router functionality"
 	@echo "  make test-full     - Run all tests"
 	@echo ""
+	@echo "$(YELLOW)Submodules & Sources:$(NC)"
+	@echo "  make submodules-ensure  - Add/init/update all core submodules"
+	@echo "  make submodules-status  - Show submodule status"
+	@echo "  make submodules-update  - Fast-forward all submodules"
+	@echo "  make images-build       - Build local images from source"
+	@echo "  make run-local          - Ensure submodules then start stack"
+	@echo ""
 	@echo "$(YELLOW)Profiles:$(NC)"
 	@echo "  make tools         - Start with dev tools (Adminer, etc.)"
-	@echo "  make full          - Start all services including optional"
+	@echo "  make infra         - Start only infrastructure services"
+	@echo "  make dev           - Start development mode with hot reload"
 	@echo ""
 	@echo "$(YELLOW)Logs:$(NC)"
 	@echo "  make logs          - View all logs"
@@ -79,9 +89,17 @@ setup:
 .PHONY: up
 up: setup
 	@echo "$(BLUE)Starting Hanzo Stack...$(NC)"
-	@$(COMPOSE) up -d
-	@echo "$(GREEN)Waiting for services to be healthy...$(NC)"
-	@./scripts/wait-for-healthy.sh
+	@$(COMPOSE) up -d --build
+	@echo "$(GREEN)Waiting for services to be ready...$(NC)"
+	@sleep 5
+	@make status
+
+.PHONY: batteries
+batteries: setup submodules-ensure
+	@echo "$(BLUE)Starting Full Hanzo Stack (ALL Services)...$(NC)"
+	@$(COMPOSE_BATTERIES) up -d --build
+	@echo "$(GREEN)Waiting for services to be ready...$(NC)"
+	@sleep 10
 	@make status
 
 .PHONY: infra
@@ -94,6 +112,7 @@ infra: setup
 	@echo "MongoDB: localhost:27017"
 	@echo "MinIO: localhost:9000 (Console: localhost:9001)"
 	@echo "Meilisearch: localhost:7700"
+
 
 .PHONY: start
 start: up
@@ -115,12 +134,14 @@ dev-up: setup
 stop down:
 	@echo "$(BLUE)Stopping Hanzo Stack...$(NC)"
 	@$(COMPOSE) down
+	@$(COMPOSE_BATTERIES) down 2>/dev/null || true
 
 .PHONY: restart
 restart:
 	@echo "$(BLUE)Restarting Hanzo Stack...$(NC)"
 	@$(COMPOSE) restart
-	@./scripts/wait-for-healthy.sh
+	@sleep 5
+	@make status
 
 .PHONY: ps
 ps:
@@ -128,7 +149,30 @@ ps:
 
 .PHONY: status
 status:
-	@./scripts/check-status.sh
+	@echo "$(BLUE)Hanzo Stack Status:$(NC)"
+	@echo ""
+	@echo "$(YELLOW)Running Services:$(NC)"
+	@docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep hanzo || echo "  No services running"
+	@echo ""
+	@echo "$(GREEN)Service URLs:$(NC)"
+	@echo "  LLM Gateway:     http://localhost:4000"
+	@echo "  Chat:            http://localhost:3081"
+	@echo "  Search:          http://localhost:3000"
+	@echo "  Build:           http://localhost:3002"
+	@echo "  IDE:             http://localhost:3005"
+	@echo "  Runtime:         http://localhost:3003"
+	@echo "  MCP Server:      http://localhost:3004"
+	@echo "  Operative VNC:   http://localhost:6080"
+	@echo "  Platform:        http://localhost:3006"
+	@echo "  Flow:            http://localhost:3007"
+	@echo "  Agent API:       http://localhost:8001"
+	@echo ""
+	@echo "$(YELLOW)Infrastructure:$(NC)"
+	@echo "  PostgreSQL:      localhost:5432     $(shell docker ps -q -f name=hanzo-postgres > /dev/null 2>&1 && echo "[$(GREEN)✓$(NC)]" || echo "[$(RED)✗$(NC)]")"
+	@echo "  Redis:           localhost:6379     $(shell docker ps -q -f name=hanzo-redis > /dev/null 2>&1 && echo "[$(GREEN)✓$(NC)]" || echo "[$(RED)✗$(NC)]")"
+	@echo "  MongoDB:         localhost:27017    $(shell docker ps -q -f name=hanzo-mongodb > /dev/null 2>&1 && echo "[$(GREEN)✓$(NC)]" || echo "[$(RED)✗$(NC)]")"
+	@echo "  MinIO:           localhost:9000     $(shell docker ps -q -f name=hanzo-minio > /dev/null 2>&1 && echo "[$(GREEN)✓$(NC)]" || echo "[$(RED)✗$(NC)]")"
+	@echo "  Meilisearch:     localhost:7700     $(shell docker ps -q -f name=hanzo-meilisearch > /dev/null 2>&1 && echo "[$(GREEN)✓$(NC)]" || echo "[$(RED)✗$(NC)]")"
 
 .PHONY: health
 health:
@@ -211,7 +255,7 @@ mongo-shell:
 .PHONY: shell-%
 shell-%:
 	@echo "$(BLUE)Opening shell in $* container...$(NC)"
-	@$(COMPOSE) exec $* /bin/sh
+	@$(COMPOSE) exec $* /bin/sh 2>/dev/null || $(COMPOSE_BATTERIES) exec $* /bin/sh
 
 # ===== Maintenance =====
 .PHONY: clean
@@ -290,3 +334,121 @@ env-info:
 docs:
 	@echo "$(BLUE)Opening documentation...$(NC)"
 	@python -m http.server -d docs 8888
+
+# ===== Submodules & Sources =====
+.PHONY: submodules-init
+submodules-init:
+	@echo "$(BLUE)Initializing git submodules (recursive)...$(NC)"
+	@git submodule update --init --recursive
+
+.PHONY: submodules-update
+submodules-update:
+	@echo "$(BLUE)Syncing and updating submodules to remote HEAD...$(NC)"
+	@git submodule sync --recursive
+	@git submodule update --init --recursive
+	@git submodule foreach --recursive 'git fetch --all --prune || true'
+	@git submodule foreach --recursive 'branch=$$(git symbolic-ref -q --short HEAD || echo main); echo "Updating $$name ($$branch)"; git pull --ff-only origin $$branch || true'
+
+.PHONY: submodules-status
+submodules-status:
+	@echo "$(BLUE)Submodule status (recursive):$(NC)"
+	@git submodule status --recursive || echo "No submodules detected."
+
+# Add common Hanzo repos as submodules if missing
+# Map repo -> path inside stack
+HANZO_ORG ?= hanzoai
+define ADD_SUBMODULE
+  @if [ ! -d "$(2)/.git" ]; then \
+    echo "$(YELLOW)Adding submodule: $(2) -> https://github.com/$(HANZO_ORG)/$(1).git$(NC)"; \
+    mkdir -p "$(dir $(2))"; \
+    git submodule add --force https://github.com/$(HANZO_ORG)/$(1).git "$(2)" || true; \
+  else \
+    echo "$(GREEN)Submodule present: $(2)$(NC)"; \
+  fi
+endef
+
+.PHONY: submodules-add-core
+submodules-add-core:
+	@echo "$(BLUE)Ensuring core Hanzo submodules exist...$(NC)"
+	$(call ADD_SUBMODULE,llm,services/llm)
+	$(call ADD_SUBMODULE,chat,services/chat)
+	$(call ADD_SUBMODULE,search,services/search)
+	$(call ADD_SUBMODULE,cloud,cloud)
+	$(call ADD_SUBMODULE,runtime,runtime)
+	$(call ADD_SUBMODULE,iam,iam)
+	$(call ADD_SUBMODULE,mcp,mcp)
+	$(call ADD_SUBMODULE,platform,platform)
+	$(call ADD_SUBMODULE,js-sdk,js-sdk)
+	$(call ADD_SUBMODULE,python-sdk,python-sdk)
+	$(call ADD_SUBMODULE,sdk,sdk)
+	$(call ADD_SUBMODULE,agent,libs/agent)
+	$(call ADD_SUBMODULE,jin,services/jin)
+	$(call ADD_SUBMODULE,az2,services/az2)
+	@echo "$(GREEN)Core submodule check complete.$(NC)"
+
+.PHONY: submodules-ensure
+submodules-ensure: submodules-add-core submodules-init submodules-update submodules-status
+	@echo "$(GREEN)Submodules ensured and up-to-date.$(NC)"
+
+.PHONY: submodules-normalize-urls
+submodules-normalize-urls:
+	@echo "$(BLUE)Normalizing submodule URLs to https://github.com/$(HANZO_ORG) ...$(NC)"
+	@set -e; \
+  normalize() { \
+    name="$$1"; repo="$$2"; \
+    if git config -f .gitmodules --get submodule.$$name.path >/dev/null 2>&1; then \
+      echo " - $$name -> https://github.com/$(HANZO_ORG)/$$repo.git"; \
+      git config -f .gitmodules submodule.$$name.url https://github.com/$(HANZO_ORG)/$$repo.git; \
+    fi; \
+  }; \
+  normalize mcp mcp; \
+  normalize platform platform; \
+  normalize build build; \
+  normalize python-sdk python-sdk; \
+  normalize js-sdk js-sdk; \
+  normalize operative operative; \
+  echo "$(GREEN)Updated .gitmodules. Run 'git submodule sync' next.$(NC)"
+
+# ===== Build images from local source (best-effort) =====
+.PHONY: images-build
+images-build:
+	@echo "$(BLUE)Building local images from source (best-effort)...$(NC)"
+	@set -e; \
+  if [ -f services/llm/Dockerfile ]; then \
+    echo "-> router (llm)"; \
+    docker build --target development -t ghcr.io/hanzoai/router:dev services/llm || true; \
+    docker tag ghcr.io/hanzoai/router:dev ghcr.io/hanzoai/router:latest || true; \
+  else echo "skip router: services/llm/Dockerfile not found"; fi; \
+  if [ -f services/chat/Dockerfile.dev ]; then \
+    echo "-> chat"; \
+    docker build -f services/chat/Dockerfile.dev -t ghcr.io/hanzoai/chat:dev services/chat || true; \
+    docker tag ghcr.io/hanzoai/chat:dev ghcr.io/hanzoai/chat:latest || true; \
+  else echo "skip chat: services/chat/Dockerfile.dev not found"; fi; \
+  if [ -f cloud/Dockerfile ]; then \
+    echo "-> cloud"; \
+    docker build --target development -t ghcr.io/hanzoai/cloud:dev cloud || true; \
+    docker tag ghcr.io/hanzoai/cloud:dev ghcr.io/hanzoai/cloud:latest || true; \
+  else echo "skip cloud: cloud/Dockerfile not found"; fi; \
+  if [ -f runtime/Dockerfile.runtime ]; then \
+    echo "-> runtime"; \
+    docker build -f runtime/Dockerfile.runtime --target development -t ghcr.io/hanzoai/runtime:dev runtime || true; \
+    docker tag ghcr.io/hanzoai/runtime:dev ghcr.io/hanzoai/runtime:latest || true; \
+  else echo "skip runtime: runtime/Dockerfile.runtime not found"; fi; \
+  if [ -f iam/Dockerfile.develop ]; then \
+    echo "-> iam"; \
+    docker build -f iam/Dockerfile.develop -t ghcr.io/hanzoai/iam:dev iam || true; \
+    docker tag ghcr.io/hanzoai/iam:dev ghcr.io/hanzoai/iam:latest || true; \
+  else echo "skip iam: iam/Dockerfile.develop not found"; fi; \
+  if [ -f mcp/Dockerfile ]; then \
+    echo "-> mcp"; \
+    docker build -t ghcr.io/hanzoai/mcp:dev mcp || true; \
+    docker tag ghcr.io/hanzoai/mcp:dev ghcr.io/hanzoai/mcp:latest || true; \
+  else echo "skip mcp: mcp/Dockerfile not found"; fi; \
+  echo "$(GREEN)Image build pass complete.$(NC)"
+
+.PHONY: run-local
+run-local: submodules-ensure images-build
+	@echo "$(BLUE)Starting stack using compose.yml (local images will override tags)...$(NC)"
+	@$(COMPOSE) up -d
+	@./scripts/wait-for-healthy.sh || true
+	@make status

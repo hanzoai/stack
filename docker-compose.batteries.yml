@@ -1,0 +1,528 @@
+# Hanzo Stack - Batteries Included
+# Full stack with ALL core services for local development
+
+services:
+  # ===== Core Infrastructure =====
+  postgres:
+    image: postgres:16-alpine
+    container_name: hanzo-postgres
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER:-hanzo}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-hanzo123}
+      - POSTGRES_DB=${POSTGRES_DB:-hanzo}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-hanzo}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: hanzo-redis
+    command: redis-server --requirepass ${REDIS_PASSWORD:-hanzo123} --appendonly yes
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD:-hanzo123}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  mongodb:
+    image: mongo:7
+    container_name: hanzo-mongodb
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=${MONGO_USERNAME:-hanzo}
+      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_PASSWORD:-hanzo123}
+      - MONGO_INITDB_DATABASE=${MONGO_DATABASE:-hanzo}
+    volumes:
+      - mongodb_data:/data/db
+    ports:
+      - "${MONGO_PORT:-27017}:27017"
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  minio:
+    image: minio/minio:latest
+    container_name: hanzo-minio
+    command: server /data --console-address ":9001"
+    environment:
+      - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
+      - MINIO_ROOT_PASSWORD=${MINIO_ROOT_PASSWORD:-minioadmin}
+    volumes:
+      - minio_data:/data
+    ports:
+      - "${MINIO_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  meilisearch:
+    image: getmeili/meilisearch:v1.6
+    container_name: hanzo-meilisearch
+    environment:
+      - MEILI_ENV=${MEILI_ENV:-development}
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-masterKey}
+      - MEILI_NO_ANALYTICS=true
+    volumes:
+      - meilisearch_data:/meili_data
+    ports:
+      - "${MEILISEARCH_PORT:-7700}:7700"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # ===== LLM Gateway (Router) =====
+  llm:
+    build:
+      context: ../llm
+      dockerfile: Dockerfile
+    container_name: hanzo-llm
+    ports:
+      - "${LLM_PORT:-4000}:4000"
+      - "${LLM_METRICS_PORT:-9090}:9090"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_llm
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - MASTER_KEY=${LLM_MASTER_KEY:-sk-llm-master-hanzo}
+      # LLM Provider Keys
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - GEMINI_API_KEY=${GEMINI_API_KEY}
+      - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - MISTRAL_API_KEY=${MISTRAL_API_KEY}
+      - PERPLEXITY_API_KEY=${PERPLEXITY_API_KEY}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - XAI_API_KEY=${XAI_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - COHERE_API_KEY=${COHERE_API_KEY}
+      - REPLICATE_API_KEY=${REPLICATE_API_KEY}
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION:-us-east-1}
+      - AZURE_API_KEY=${AZURE_API_KEY}
+      - AZURE_API_BASE=${AZURE_API_BASE}
+      # Configuration
+      - PORT=4000
+      - LITELLM_MODE=PRODUCTION
+      - SET_VERBOSE=true
+      - UI_USERNAME=${LLM_UI_USERNAME:-admin}
+      - UI_PASSWORD=${LLM_UI_PASSWORD:-admin}
+    volumes:
+      - ./config/llm-config.yaml:/app/config.yaml:ro
+      - ../llm:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: ["python", "-m", "llm.proxy.proxy_server", "--config", "/app/config.yaml", "--port", "4000"]
+    networks:
+      - hanzo-network
+
+  # ===== Chat Platform =====
+  chat:
+    build:
+      context: ../chat
+      dockerfile: Dockerfile
+    container_name: hanzo-chat
+    ports:
+      - "${CHAT_PORT:-3081}:3080"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_chat
+      - MONGO_URI=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/${MONGO_DATABASE:-hanzo}?authSource=admin
+      - MEILI_URL=http://meilisearch:7700
+      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-masterKey}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-llm-master-hanzo}
+      - OPENAI_BASE_URL=http://llm:4000/v1
+      - ALLOW_SOCIAL_LOGIN=false
+      - CREDS_IV=${CREDS_IV:-16_chars_exactly}
+      - CREDS_KEY=${CREDS_KEY:-32_chars_exactly_for_encryption_}
+      - JWT_SECRET=${JWT_SECRET:-your-jwt-secret}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-your-refresh-secret}
+      - DOMAIN_CLIENT=http://localhost:3081
+      - DOMAIN_SERVER=http://localhost:3081
+      - NO_INDEX=true
+      - DEBUG_LOGGING=true
+      - DEBUG_CONSOLE=true
+      - SEARCH_ENABLED=false
+      - REGISTRATION_ENABLED=true
+      - CHECK_BALANCE=false
+      - TITLE_CONVO=true
+      - CUSTOM_FOOTER="Powered by Hanzo AI"
+      - HELP_AND_FAQ_URL=https://hanzo.ai/help
+      - SHOW_BIRTHDAY_ICON=false
+      - ALLOW_MESSAGE_EDITING=true
+      - ALLOW_MESSAGE_DELETION=true
+      - ALLOW_UNVERIFIED_EMAIL_LOGIN=true
+      - APP_TITLE=Hanzo Chat
+    volumes:
+      - ../chat:/app
+      - chat_uploads:/app/uploads
+      - /app/node_modules
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      meilisearch:
+        condition: service_healthy
+      llm:
+        condition: service_started
+    networks:
+      - hanzo-network
+
+  # ===== Search Service =====
+  search:
+    build:
+      context: ../search
+      dockerfile: Dockerfile
+    container_name: hanzo-search
+    ports:
+      - "${SEARCH_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://llm:4000/v1
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-llm-master-hanzo}
+      - OPENAI_BASE_URL=http://llm:4000/v1
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_search
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+    volumes:
+      - ../search:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      llm:
+        condition: service_started
+    networks:
+      - hanzo-network
+
+  # ===== Build Service =====
+  build:
+    build:
+      context: ./build
+      dockerfile: Dockerfile
+    container_name: hanzo-build
+    ports:
+      - "${BUILD_PORT:-3002}:3000"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - MONGODB_URI=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/${MONGO_DATABASE:-hanzo}_build?authSource=admin
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-llm-master-hanzo}
+      - OPENAI_BASE_URL=http://llm:4000/v1
+      - HF_CLIENT_ID=${HF_CLIENT_ID}
+      - HF_CLIENT_SECRET=${HF_CLIENT_SECRET}
+      - HF_TOKEN=${HF_TOKEN}
+      - FIREWORKS_API_KEY=${FIREWORKS_API_KEY}
+      - SAMBANOVA_API_KEY=${SAMBANOVA_API_KEY}
+      - NOVITA_API_KEY=${NOVITA_API_KEY}
+      - HYPERBOLIC_API_KEY=${HYPERBOLIC_API_KEY}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - GROQ_API_KEY=${GROQ_API_KEY}
+      - NEBIUS_API_KEY=${NEBIUS_API_KEY}
+    volumes:
+      - ./build:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      mongodb:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      llm:
+        condition: service_started
+    networks:
+      - hanzo-network
+
+  # ===== MCP Server =====
+  mcp:
+    build:
+      context: ./mcp
+      dockerfile: Dockerfile
+    container_name: hanzo-mcp
+    ports:
+      - "${MCP_PORT:-3004}:3004"
+    environment:
+      - NODE_ENV=${NODE_ENV:-development}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+    volumes:
+      - ./mcp:/app
+      - /app/node_modules
+      - ./workspace:/workspace
+    networks:
+      - hanzo-network
+
+  # ===== Operative (Computer Use) =====
+  operative:
+    build:
+      context: ./operative
+      dockerfile: docker/Dockerfile.xvfb
+    container_name: hanzo-operative
+    ports:
+      - "${OPERATIVE_PORT:-3005}:8080"
+      - "${VNC_PORT:-5900}:5900"
+      - "${NOVNC_PORT:-6080}:6080"
+    environment:
+      - DISPLAY=:1
+      - VNC_PASSWORD=${VNC_PASSWORD:-hanzo123}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - WIDTH=${SCREEN_WIDTH:-1920}
+      - HEIGHT=${SCREEN_HEIGHT:-1080}
+    volumes:
+      - ./operative:/app
+      - operative_data:/home/computeruse/.local
+    shm_size: 2gb
+    networks:
+      - hanzo-network
+
+  # ===== Platform Service =====
+  platform:
+    build:
+      context: ./platform
+      dockerfile: Dockerfile
+    container_name: hanzo-platform
+    ports:
+      - "${PLATFORM_PORT:-3006}:3000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_platform
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-llm-master-hanzo}
+      - OPENAI_BASE_URL=http://llm:4000/v1
+      - NEXTAUTH_URL=http://localhost:3006
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-nextauth-secret}
+    volumes:
+      - ./platform:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      llm:
+        condition: service_started
+    networks:
+      - hanzo-network
+
+  # ===== Flow (Workflow Builder) =====
+  flow:
+    build:
+      context: ../flow
+      dockerfile: Dockerfile
+    container_name: hanzo-flow
+    ports:
+      - "${FLOW_PORT:-3007}:3000"
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_flow
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-sk-llm-master-hanzo}
+      - OPENAI_BASE_URL=http://llm:4000/v1
+    volumes:
+      - ../flow:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      llm:
+        condition: service_started
+    networks:
+      - hanzo-network
+
+  # ===== Agent Framework =====
+  agent:
+    build:
+      context: ../agent
+      dockerfile: Dockerfile
+    container_name: hanzo-agent
+    ports:
+      - "${AGENT_PORT:-8001}:8000"
+    environment:
+      - HANZO_ROUTER_URL=http://llm:4000/v1
+      - HANZO_API_KEY=${LLM_MASTER_KEY:-sk-llm-master-hanzo}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_agent
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+    volumes:
+      - ../agent:/app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      llm:
+        condition: service_started
+    networks:
+      - hanzo-network
+
+
+  # ===== IDE Service =====
+  ide:
+    build:
+      context: ../ide
+      dockerfile: Dockerfile
+    container_name: hanzo-ide
+    ports:
+      - "${IDE_PORT:-3005}:3001"
+    environment:
+      - LLM_API_KEY=${LLM_MASTER_KEY:-sk-llm-master-hanzo}
+      - LLM_BASE_URL=http://llm:4000
+      - WORKSPACE_MOUNT_PATH=/workspace
+      - SANDBOX_USER_ID=1000
+      - USE_HOST_NETWORK=false
+      - RUN_AS_OPENHANDS=true
+      - RUNTIME_CONTAINER_IMAGE=ghcr.io/hanzoai/runtime:latest
+      - SANDBOX_TYPE=exec
+      - WORKSPACE_BASE=/workspace
+      - MOUNT_WORKSPACE=true
+      - MOUNT_CACHE=true
+      - CACHE_DIR=/tmp/cache
+      - BROWSERGYM_CDN=https://browser-use-api-experimental.netlify.app
+      - INIT_PLUGINS=codeact,jupyter,swe_agent
+    volumes:
+      - ./workspace:/workspace
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../ide:/app
+    depends_on:
+      llm:
+        condition: service_started
+    networks:
+      - hanzo-network
+
+  # ===== Runtime Service =====
+  runtime:
+    build:
+      context: ../runtime
+      dockerfile: Dockerfile.runtime
+    container_name: hanzo-runtime
+    ports:
+      - "${RUNTIME_PORT:-3003}:8080"
+    environment:
+      - RUNTIME_CONTAINER_IMAGE=ghcr.io/hanzoai/runtime:latest
+      - DOCKER_HOST=unix:///var/run/docker.sock
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ../runtime:/app
+    networks:
+      - hanzo-network
+
+  # ===== Development Tools =====
+  adminer:
+    image: adminer
+    container_name: hanzo-adminer
+    ports:
+      - "${ADMINER_PORT:-8081}:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    networks:
+      - hanzo-network
+    profiles:
+      - tools
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: hanzo-redis-commander
+    ports:
+      - "${REDIS_COMMANDER_PORT:-8082}:8081"
+    environment:
+      - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:-hanzo123}
+    networks:
+      - hanzo-network
+    profiles:
+      - tools
+
+  mongo-express:
+    image: mongo-express
+    container_name: hanzo-mongo-express
+    ports:
+      - "${MONGO_EXPRESS_PORT:-8083}:8081"
+    environment:
+      - ME_CONFIG_MONGODB_ADMINUSERNAME=${MONGO_USERNAME:-hanzo}
+      - ME_CONFIG_MONGODB_ADMINPASSWORD=${MONGO_PASSWORD:-hanzo123}
+      - ME_CONFIG_MONGODB_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/
+    depends_on:
+      - mongodb
+    networks:
+      - hanzo-network
+    profiles:
+      - tools
+
+  # ===== Monitoring Stack =====
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: hanzo-prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - hanzo-network
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: hanzo-grafana
+    ports:
+      - "${GRAFANA_PORT:-3030}:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - hanzo-network
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+  redis_data:
+  mongodb_data:
+  minio_data:
+  meilisearch_data:
+  chat_uploads:
+  operative_data:
+  prometheus_data:
+  grafana_data:
+
+networks:
+  hanzo-network:
+    driver: bridge

@@ -1,0 +1,166 @@
+# Docker Compose file for Hanzo AI services
+# Demonstrates production-ready deployment of Runtime, Cloud, and MCP services
+
+version: '3.8'
+
+services:
+  # Hanzo Runtime Service
+  hanzo-runtime:
+    build:
+      context: ../runtime
+      dockerfile: Dockerfile
+      target: production
+    image: hanzoai/runtime:latest
+    container_name: hanzo-runtime
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:pass@postgres:5432/hanzo_runtime}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.request({hostname: 'localhost', port: 3000, path: '/health', method: 'GET'}, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - hanzo-network
+
+  # Hanzo Cloud Dashboard
+  hanzo-cloud:
+    build:
+      context: ../cloud
+      dockerfile: Dockerfile
+      target: production
+    image: hanzoai/cloud:latest
+    container_name: hanzo-cloud
+    ports:
+      - "3001:3001"
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - NEXTAUTH_URL=${NEXTAUTH_URL:-http://localhost:3001}
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-secret-key}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://user:pass@postgres:5432/hanzo_cloud}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    depends_on:
+      - postgres
+      - redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "const http = require('http'); const req = http.request({hostname: 'localhost', port: 3001, path: '/api/health', method: 'GET'}, (res) => process.exit(res.statusCode === 200 ? 0 : 1)); req.on('error', () => process.exit(1)); req.end();"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - hanzo-network
+
+  # Hanzo MCP Server
+  hanzo-mcp:
+    build:
+      context: ../mcp
+      dockerfile: Dockerfile
+      target: production
+    image: hanzoai/mcp:latest
+    container_name: hanzo-mcp
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "node", "-e", "process.exit(0);"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    networks:
+      - hanzo-network
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: hanzo-postgres
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-hanzo}
+      - POSTGRES_USER=${POSTGRES_USER:-user}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-pass}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db:/docker-entrypoint-initdb.d
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-user} -d ${POSTGRES_DB:-hanzo}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: hanzo-redis
+    command: redis-server --appendonly yes --requirepass "${REDIS_PASSWORD:-}"
+    volumes:
+      - redis_data:/data
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # Reverse Proxy (Traefik)
+  traefik:
+    image: traefik:v3.1
+    container_name: hanzo-traefik
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=${ACME_EMAIL:-admin@hanzo.ai}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"  # Traefik dashboard
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_data:/letsencrypt
+    restart: unless-stopped
+    networks:
+      - hanzo-network
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dashboard.rule=Host(`traefik.${DOMAIN:-localhost}`)"
+      - "traefik.http.routers.dashboard.tls=true"
+      - "traefik.http.routers.dashboard.tls.certresolver=letsencrypt"
+
+networks:
+  hanzo-network:
+    driver: bridge
+    name: hanzo-network
+
+volumes:
+  postgres_data:
+    name: hanzo-postgres-data
+  redis_data:
+    name: hanzo-redis-data
+  traefik_data:
+    name: hanzo-traefik-data
