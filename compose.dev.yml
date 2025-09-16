@@ -1,8 +1,7 @@
-# Hanzo Stack - Development Compose
-# Builds all services from local source code with hot reload
+#+ Hanzo Stack - Development Compose (from submodules in stack/)
 
 services:
-  # Core Infrastructure (using same images as production)
+  # Core Infrastructure
   postgres:
     image: postgres:16-alpine
     container_name: hanzo-postgres
@@ -94,37 +93,45 @@ services:
       retries: 5
     networks:
       - hanzo-network
-  
-  # Hanzo Router (LLM Gateway) - Development mode
+
+  # Router (LLM Gateway) from submodule
   router:
     build:
-      context: ../llm
+      context: services/llm
       dockerfile: Dockerfile
       target: development
+    container_name: hanzo-router
     environment:
       - ROUTER_MODE=DEVELOPMENT
       - DEBUG=true
       - LOG_LEVEL=debug
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - MASTER_KEY=${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
     volumes:
-      # Mount source code for hot reload
-      - ../llm/litellm_proxy:/app/litellm_proxy:rw
-      - ../llm/utils:/app/utils:rw
-      - ../llm/litellm:/app/litellm:rw
-      # Mount config files
+      - services/llm:/app:rw
       - ./config/router-config.yaml:/app/config.yaml:ro
       - ./config/router-extensions.py:/app/extensions.py:ro
-      # Persist logs
       - ./logs/router:/app/logs:rw
     command: ["--config", "/app/config.yaml", "--port", "4000", "--debug"]
+    ports:
+      - "${ROUTER_PORT:-4000}:4000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hanzo-network
 
-  # Hanzo Chat - Development mode (LiteLLM Proxy)
+  # Chat from submodule
   chat:
     build:
-      context: ../chat
+      context: services/chat
       dockerfile: Dockerfile.dev
     container_name: hanzo-chat
-    ports:
-      - "${CHAT_PORT:-3081}:4000"
     environment:
       - NODE_ENV=development
       - LITELLM_MODE=DEVELOPMENT
@@ -137,121 +144,117 @@ services:
       - DEBUG=true
       - LOG_LEVEL=DEBUG
     volumes:
-      # Mount source code for hot reload
-      - ../chat:/app:rw
+      - services/chat:/app:rw
       - ./config/litellm-config.yaml:/app/config.yaml:ro
-      # Persist logs
       - ./logs/chat:/app/logs:rw
     command: ["python", "-m", "litellm", "--config", "/app/config.yaml", "--port", "4000", "--detailed_debug"]
+    ports:
+      - "${CHAT_PORT:-3081}:4000"
     depends_on:
       postgres:
         condition: service_healthy
     networks:
       - hanzo-network
 
-  # Hanzo Cloud - Development mode
+  # Cloud (Next.js) from submodule
   cloud:
     build:
-      context: ../cloud
+      context: cloud
       dockerfile: Dockerfile
       target: development
+    container_name: hanzo-cloud
     environment:
       - NODE_ENV=development
       - NEXT_TELEMETRY_DISABLED=1
     volumes:
-      # Mount source code
-      - ../cloud:/app:rw
+      - cloud:/app:rw
       - /app/node_modules
       - /app/.next
-      # Mount workspace packages
-      - ../cloud/packages:/app/packages:rw
-      - ../cloud/apps:/app/apps:rw
     command: ["pnpm", "dev"]
-
-  # Hanzo Search - Development mode
-  search:
-    build:
-      context: ../search
-      dockerfile: Dockerfile
-      target: development
-    environment:
-      - NODE_ENV=development
-      - NEXT_TELEMETRY_DISABLED=1
-    volumes:
-      # Mount source code
-      - ../search:/app:rw
-      - /app/node_modules
-      - /app/.next
-    command: ["npm", "run", "dev"]
-
-  # Hanzo Build - Development mode (OpenHands)
-  build:
-    build:
-      context: ../dev
-      dockerfile: containers/app/Dockerfile
-      target: development
-    container_name: hanzo-build
     ports:
-      - "${BUILD_PORT:-3002}:3000"
-    environment:
-      - NODE_ENV=development
-      - WORKSPACE_MOUNT_PATH=/workspace
-      - SANDBOX_USER_ID=1000
-      - SANDBOX_RUNTIME_CONTAINER_IMAGE=ubuntu:22.04
-      - USE_HOST_NETWORK=false
-      - SSH_HOSTNAME=localhost
-      - DISABLE_TELEM=true
-      - DEBUG=true
-      - LOG_LEVEL=DEBUG
-    volumes:
-      # Mount source code
-      - ../build:/app:rw
-      - build_workspace:/workspace
-      - /app/venv
-      - /app/frontend/node_modules
-      - /var/run/docker.sock:/var/run/docker.sock
-    command: ["make", "run"]
+      - "${CLOUD_PORT:-3001}:3000"
     networks:
       - hanzo-network
 
-  # Hanzo Runtime - Development mode
+  # Search from submodule
+  search:
+    build:
+      context: services/search
+      dockerfile: Dockerfile
+      target: development
+    container_name: hanzo-search
+    environment:
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=1
+    volumes:
+      - services/search:/app:rw
+      - /app/node_modules
+      - /app/.next
+    command: ["npm", "run", "dev"]
+    ports:
+      - "${SEARCH_PORT:-3000}:3000"
+    networks:
+      - hanzo-network
+
+  # Runtime from submodule
   runtime:
     build:
-      context: ../runtime
+      context: runtime
       dockerfile: Dockerfile.runtime
       target: development
+    container_name: hanzo-runtime
     environment:
       - NODE_ENV=development
       - DEBUG=true
       - LOG_LEVEL=debug
-      # Additional development environment variables
       - WATCH_MODE=true
       - HOT_RELOAD=true
     volumes:
-      # Mount source code for hot reload
-      - ../runtime:/app:rw
+      - runtime:/app:rw
       - /app/node_modules
       - /app/dist
-      # Mount apps source
-      - ../runtime/apps:/app/apps:rw
-      - ../runtime/libs:/app/libs:rw
-      # Persist development data
       - ./data/runtime:/app/data:rw
       - ./logs/runtime:/app/logs:rw
     command: ["pnpm", "nx", "serve", "api", "--watch"]
+    ports:
+      - "${RUNTIME_PORT:-3003}:8080"
     networks:
       - hanzo-network
 
-  # Add development tools
+  # IAM from submodule
+  iam:
+    build:
+      context: iam
+      dockerfile: Dockerfile.develop
+    container_name: hanzo-iam
+    environment:
+      - RUNNING_IN_DOCKER=true
+      - DEBUG=true
+      - driverName=postgres
+      - dataSourceName=user=${POSTGRES_USER:-hanzo} password=${POSTGRES_PASSWORD:-hanzo123} host=postgres port=5432 sslmode=disable dbname=iam
+    volumes:
+      - iam:/go/src/casdoor:rw
+      - iam/web:/web:rw
+      - iam_data:/conf
+    command: ["/go/src/casdoor/server"]
+    ports:
+      - "${IAM_PORT:-8000}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - hanzo-network
+
+  # Dev Tools (profiles)
   adminer:
     image: adminer:latest
     container_name: hanzo-adminer
     ports:
       - "8080:8080"
-    networks:
-      - hanzo-network
     depends_on:
       - postgres
+    networks:
+      - hanzo-network
     profiles:
       - tools
 
@@ -262,10 +265,10 @@ services:
       - REDIS_HOSTS=local:redis:6379:0:${REDIS_PASSWORD:-hanzo123}
     ports:
       - "8081:8081"
-    networks:
-      - hanzo-network
     depends_on:
       - redis
+    networks:
+      - hanzo-network
     profiles:
       - tools
 
@@ -280,54 +283,22 @@ services:
       - ME_CONFIG_BASICAUTH_PASSWORD=admin
     ports:
       - "8082:8081"
-    networks:
-      - hanzo-network
     depends_on:
       - mongodb
+    networks:
+      - hanzo-network
     profiles:
       - tools
 
-  # Hanzo IAM - Development mode
-  iam:
-    build:
-      context: ../iam
-      dockerfile: Dockerfile.develop
-    environment:
-      - RUNNING_IN_DOCKER=true
-      - DEBUG=true
-      - driverName=postgres
-      - dataSourceName=user=${POSTGRES_USER:-hanzo} password=${POSTGRES_PASSWORD:-hanzo123} host=postgres port=5432 sslmode=disable dbname=iam
-    volumes:
-      # Mount source code for hot reload
-      - ../iam:/go/src/casdoor:rw
-      - ../iam/web:/web:rw
-      - iam_data:/conf
-    command: ["/go/src/casdoor/server"]
-
-# Additional volumes for development
 volumes:
-  # Database volumes
   postgres_data:
   redis_data:
   mongodb_data:
   minio_data:
   meilisearch_data:
-  
-  # Log volumes
-  router_logs:
-  chat_logs:
-  cloud_logs:
-  search_logs:
-  build_logs:
-  runtime_logs:
-  
-  # Data volumes
   chat_uploads:
-  build_workspace:
   iam_data:
 
-# Ensure we use the same network
 networks:
   hanzo-network:
-    name: hanzo-network
-    external: true
+    driver: bridge

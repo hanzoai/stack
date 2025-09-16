@@ -16,13 +16,11 @@ git submodule update --init --recursive
 git submodule update --remote --merge
 ```
 
-### Development Mode
+### Development Mode (from submodules)
 ```bash
-# Start all services building from local source code
-docker compose -f compose.dev.yml up -d
-
-# Or use Makefile
-make dev
+# Ensure submodules, then start dev stack with hot reload
+make submodules-ensure
+make dev-up
 ```
 
 ### Production Mode
@@ -167,26 +165,21 @@ For production deployment:
    ```
    hanzo/
    ├── stack/      # This repository
-   ├── llm/        # Router service
-   ├── chat/       # Chat service
-   ├── cloud/      # Cloud service
-   ├── search/     # Search service
-   ├── ide/        # IDE service
-   ├── iam/        # IAM service
-   └── runtime/    # Runtime service
+   └── (optional siblings)  # Not required when using submodules
    ```
 
 2. Start development stack:
    ```bash
    cd stack
-   docker compose -f compose.dev.yml up -d
+   make submodules-ensure
+   make dev-up
    ```
 
 3. Services will hot-reload when you edit source files
 
 4. View logs for debugging:
    ```bash
-   docker compose -f compose.dev.yml logs -f [service-name]
+   make dev-logs
    ```
 
 ## License

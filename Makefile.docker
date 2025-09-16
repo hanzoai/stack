@@ -7,10 +7,10 @@
 .DEFAULT_GOAL := help
 
 # Variables
-COMPOSE_FILE := docker-compose.hanzo-services.yml
-RUNTIME_DIR := ../runtime
-CLOUD_DIR := ../cloud
-MCP_DIR := ../mcp
+COMPOSE_FILE := compose.yml
+RUNTIME_DIR := runtime
+CLOUD_DIR := cloud
+MCP_DIR := mcp
 REGISTRY := hanzoai
 TAG ?= latest
 ENV_FILE ?= .env

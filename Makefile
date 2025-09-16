@@ -8,11 +8,9 @@ YELLOW := \033[1;33m
 BLUE := \033[0;34m
 NC := \033[0m # No Color
 
-# Default compose files
-COMPOSE := docker compose -f docker-compose.essential.yml
+# Default compose files (single, DRY)
+COMPOSE := docker compose -f compose.yml
 COMPOSE_DEV := docker compose -f compose.dev.yml
-COMPOSE_INFRA := docker compose -f compose.infra.yml
-COMPOSE_BATTERIES := docker compose -f docker-compose.batteries.yml
 
 # Default target
 .DEFAULT_GOAL := help
@@ -22,13 +20,13 @@ COMPOSE_BATTERIES := docker compose -f docker-compose.batteries.yml
 help:
 	@echo "$(BLUE)Hanzo Stack Management$(NC)"
 	@echo ""
-	@echo "$(YELLOW)Quick Start:$(NC)"
-	@echo "  make setup         - Configure environment from template"
-	@echo "  make up            - Start ALL services (batteries included)"
-	@echo "  make down          - Stop all services"
-	@echo "  make status        - Check service status"
-	@echo "  make logs          - View logs"
-	@echo "  make restart       - Restart all services"
+    @echo "$(YELLOW)Quick Start:$(NC)"
+    @echo "  make setup         - Configure environment from template"
+    @echo "  make up            - Start production stack (images)"
+    @echo "  make dev-up        - Start dev stack (build from submodules)"
+    @echo "  make status        - Check service status"
+    @echo "  make logs          - View logs"
+    @echo "  make restart       - Restart all services"
 	@echo ""
 	@echo "$(YELLOW)Service Management:$(NC)"
 	@echo "  make start         - Start all core services"
@@ -38,11 +36,12 @@ help:
 	@echo "  make health        - Health check all services"
 	@echo ""
 	@echo "$(YELLOW)Development:$(NC)"
-	@echo "  make dev           - Start with hot reload (foreground)"
-	@echo "  make dev-up        - Start development mode (background)"
+	@echo "  make dev           - Start dev stack (foreground)"
+	@echo "  make dev-up        - Start dev stack (background)"
 	@echo "  make dev-down      - Stop development services"
 	@echo "  make dev-logs      - Show development logs"
 	@echo "  make dev-status    - Check development service status"
+	@echo "  make infra         - Start only infra (db/redis/etc)"
 	@echo ""
 	@echo "$(YELLOW)Testing:$(NC)"
 	@echo "  make test          - Run integration tests"
@@ -50,17 +49,14 @@ help:
 	@echo "  make test-router   - Test router functionality"
 	@echo "  make test-full     - Run all tests"
 	@echo ""
-	@echo "$(YELLOW)Submodules & Sources:$(NC)"
-	@echo "  make submodules-ensure  - Add/init/update all core submodules"
-	@echo "  make submodules-status  - Show submodule status"
-	@echo "  make submodules-update  - Fast-forward all submodules"
-	@echo "  make images-build       - Build local images from source"
-	@echo "  make run-local          - Ensure submodules then start stack"
+    @echo "$(YELLOW)Submodules & Sources:$(NC)"
+    @echo "  make submodules-ensure   - Add/init/update all core submodules"
+    @echo "  make submodules-status   - Show submodule status"
+    @echo "  make submodules-update   - Fast-forward all submodules"
+    @echo "  make submodules-normalize-urls - Normalize remotes to https"
 	@echo ""
-	@echo "$(YELLOW)Profiles:$(NC)"
-	@echo "  make tools         - Start with dev tools (Adminer, etc.)"
-	@echo "  make infra         - Start only infrastructure services"
-	@echo "  make dev           - Start development mode with hot reload"
+    @echo "$(YELLOW)Profiles:$(NC)"
+    @echo "  make tools         - Start dev tools (Adminer, etc.)"
 	@echo ""
 	@echo "$(YELLOW)Logs:$(NC)"
 	@echo "  make logs          - View all logs"
@@ -88,24 +84,15 @@ setup:
 # ===== Quick Start =====
 .PHONY: up
 up: setup
-	@echo "$(BLUE)Starting Hanzo Stack...$(NC)"
-	@$(COMPOSE) up -d --build
-	@echo "$(GREEN)Waiting for services to be ready...$(NC)"
-	@sleep 5
-	@make status
-
-.PHONY: batteries
-batteries: setup submodules-ensure
-	@echo "$(BLUE)Starting Full Hanzo Stack (ALL Services)...$(NC)"
-	@$(COMPOSE_BATTERIES) up -d --build
-	@echo "$(GREEN)Waiting for services to be ready...$(NC)"
-	@sleep 10
+	@echo "$(BLUE)Starting Hanzo Stack (production images)...$(NC)"
+	@$(COMPOSE) up -d
+	@./scripts/wait-for-healthy.sh || true
 	@make status
 
 .PHONY: infra
 infra: setup
 	@echo "$(BLUE)Starting infrastructure services...$(NC)"
-	@$(COMPOSE_INFRA) up -d
+	@$(COMPOSE) up -d postgres redis mongodb minio meilisearch
 	@echo "$(GREEN)Infrastructure services started!$(NC)"
 	@echo "PostgreSQL: localhost:5432"
 	@echo "Redis: localhost:6379"
@@ -134,13 +121,12 @@ dev-up: setup
 stop down:
 	@echo "$(BLUE)Stopping Hanzo Stack...$(NC)"
 	@$(COMPOSE) down
-	@$(COMPOSE_BATTERIES) down 2>/dev/null || true
 
 .PHONY: restart
 restart:
 	@echo "$(BLUE)Restarting Hanzo Stack...$(NC)"
 	@$(COMPOSE) restart
-	@sleep 5
+	@./scripts/wait-for-healthy.sh || true
 	@make status
 
 .PHONY: ps
@@ -219,12 +205,12 @@ test-full: test-api test-router test
 .PHONY: tools
 tools:
 	@echo "$(BLUE)Starting with development tools...$(NC)"
-	@COMPOSE_PROFILES=tools $(COMPOSE) up -d
+	@COMPOSE_PROFILES=tools $(COMPOSE_DEV) up -d
 
 .PHONY: full
 full:
-	@echo "$(BLUE)Starting full stack with all services...$(NC)"
-	@COMPOSE_PROFILES=tools,full $(COMPOSE_DEV) up -d
+	@echo "$(BLUE)Starting dev stack with tools...$(NC)"
+	@COMPOSE_PROFILES=tools $(COMPOSE_DEV) up -d
 
 # ===== Logs =====
 .PHONY: logs
@@ -255,7 +241,7 @@ mongo-shell:
 .PHONY: shell-%
 shell-%:
 	@echo "$(BLUE)Opening shell in $* container...$(NC)"
-	@$(COMPOSE) exec $* /bin/sh 2>/dev/null || $(COMPOSE_BATTERIES) exec $* /bin/sh
+	@$(COMPOSE) exec $* /bin/sh
 
 # ===== Maintenance =====
 .PHONY: clean
@@ -378,6 +364,8 @@ submodules-add-core:
 	$(call ADD_SUBMODULE,iam,iam)
 	$(call ADD_SUBMODULE,mcp,mcp)
 	$(call ADD_SUBMODULE,platform,platform)
+	$(call ADD_SUBMODULE,analytics,analytics)
+	$(call ADD_SUBMODULE,ide,ide)
 	$(call ADD_SUBMODULE,js-sdk,js-sdk)
 	$(call ADD_SUBMODULE,python-sdk,python-sdk)
 	$(call ADD_SUBMODULE,sdk,sdk)
@@ -410,45 +398,4 @@ submodules-normalize-urls:
   echo "$(GREEN)Updated .gitmodules. Run 'git submodule sync' next.$(NC)"
 
 # ===== Build images from local source (best-effort) =====
-.PHONY: images-build
-images-build:
-	@echo "$(BLUE)Building local images from source (best-effort)...$(NC)"
-	@set -e; \
-  if [ -f services/llm/Dockerfile ]; then \
-    echo "-> router (llm)"; \
-    docker build --target development -t ghcr.io/hanzoai/router:dev services/llm || true; \
-    docker tag ghcr.io/hanzoai/router:dev ghcr.io/hanzoai/router:latest || true; \
-  else echo "skip router: services/llm/Dockerfile not found"; fi; \
-  if [ -f services/chat/Dockerfile.dev ]; then \
-    echo "-> chat"; \
-    docker build -f services/chat/Dockerfile.dev -t ghcr.io/hanzoai/chat:dev services/chat || true; \
-    docker tag ghcr.io/hanzoai/chat:dev ghcr.io/hanzoai/chat:latest || true; \
-  else echo "skip chat: services/chat/Dockerfile.dev not found"; fi; \
-  if [ -f cloud/Dockerfile ]; then \
-    echo "-> cloud"; \
-    docker build --target development -t ghcr.io/hanzoai/cloud:dev cloud || true; \
-    docker tag ghcr.io/hanzoai/cloud:dev ghcr.io/hanzoai/cloud:latest || true; \
-  else echo "skip cloud: cloud/Dockerfile not found"; fi; \
-  if [ -f runtime/Dockerfile.runtime ]; then \
-    echo "-> runtime"; \
-    docker build -f runtime/Dockerfile.runtime --target development -t ghcr.io/hanzoai/runtime:dev runtime || true; \
-    docker tag ghcr.io/hanzoai/runtime:dev ghcr.io/hanzoai/runtime:latest || true; \
-  else echo "skip runtime: runtime/Dockerfile.runtime not found"; fi; \
-  if [ -f iam/Dockerfile.develop ]; then \
-    echo "-> iam"; \
-    docker build -f iam/Dockerfile.develop -t ghcr.io/hanzoai/iam:dev iam || true; \
-    docker tag ghcr.io/hanzoai/iam:dev ghcr.io/hanzoai/iam:latest || true; \
-  else echo "skip iam: iam/Dockerfile.develop not found"; fi; \
-  if [ -f mcp/Dockerfile ]; then \
-    echo "-> mcp"; \
-    docker build -t ghcr.io/hanzoai/mcp:dev mcp || true; \
-    docker tag ghcr.io/hanzoai/mcp:dev ghcr.io/hanzoai/mcp:latest || true; \
-  else echo "skip mcp: mcp/Dockerfile not found"; fi; \
-  echo "$(GREEN)Image build pass complete.$(NC)"
-
-.PHONY: run-local
-run-local: submodules-ensure images-build
-	@echo "$(BLUE)Starting stack using compose.yml (local images will override tags)...$(NC)"
-	@$(COMPOSE) up -d
-	@./scripts/wait-for-healthy.sh || true
-	@make status
+# No explicit image-build pathway; dev uses compose.dev.yml builds for DRY

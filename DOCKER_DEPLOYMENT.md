@@ -9,13 +9,13 @@ This guide covers the production-ready Docker deployment for the core Hanzo AI s
 cd /Users/z/work/hanzo/stack
 
 # Start all services
-docker compose -f docker-compose.hanzo-services.yml up -d
+docker compose -f compose.yml up -d
 
 # Check service status
-docker compose -f docker-compose.hanzo-services.yml ps
+docker compose -f compose.yml ps
 
 # View logs
-docker compose -f docker-compose.hanzo-services.yml logs -f
+docker compose -f compose.yml logs -f
 ```
 
 ## 📋 Services Overview
@@ -85,27 +85,19 @@ REDIS_PORT=6379
 
 ## 🚀 Deployment Options
 
-### Development Deployment
+### Development
 
 ```bash
-# Build and start development versions
-docker compose -f docker-compose.hanzo-services.yml up -d --build
-
-# Use development targets
-docker build --target development -t hanzoai/runtime:dev ../runtime
-docker build --target development -t hanzoai/cloud:dev ../cloud
+# Build and start from local submodules
+make submodules-ensure
+docker compose -f compose.dev.yml up -d --build
 ```
 
-### Production Deployment
+### Production
 
 ```bash
-# Build production images
-docker build --target production -t hanzoai/runtime:latest ../runtime
-docker build --target production -t hanzoai/cloud:latest ../cloud
-docker build --target production -t hanzoai/mcp:latest ../mcp
-
-# Start production stack
-docker compose -f docker-compose.hanzo-services.yml up -d
+# Start production stack using published images
+docker compose -f compose.yml up -d
 ```
 
 ### CI/CD Pipeline
@@ -156,7 +148,7 @@ jobs:
 
 ```bash
 # Check all service health
-docker compose -f docker-compose.hanzo-services.yml ps
+docker compose -f compose.yml ps
 
 # Individual service health
 docker inspect --format='{{.State.Health.Status}}' hanzo-runtime
@@ -189,7 +181,7 @@ docker system prune -af --volumes
    netstat -tulpn | grep :3000
    
    # Use different ports
-   docker compose -f docker-compose.hanzo-services.yml up -d \
+   docker compose -f compose.yml up -d \
      -e "POSTGRES_PORT=5433" \
      -e "REDIS_PORT=6380"
    ```
@@ -295,11 +287,11 @@ docker pull postgres:16-alpine
 docker pull redis:7-alpine
 
 # Rebuild with updated bases
-docker compose -f docker-compose.hanzo-services.yml build --no-cache
+docker compose -f compose.yml build --no-cache
 
 # Update and restart services
-docker compose -f docker-compose.hanzo-services.yml pull
-docker compose -f docker-compose.hanzo-services.yml up -d
+docker compose -f compose.yml pull
+docker compose -f compose.yml up -d
 ```
 
 ### Backup Procedures
