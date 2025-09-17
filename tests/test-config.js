@@ -1,8 +1,10 @@
 // Test configuration for real services
+const isCI = process.env.CI === 'true';
+
 module.exports = {
   postgres: {
     host: 'localhost',
-    port: 5432,
+    port: isCI ? 15432 : 15432, // CI uses 15432, local also uses 15432
     user: 'hanzo',
     password: 'hanzo123',
     database: 'hanzo'
