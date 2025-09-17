@@ -1,0 +1,41 @@
+# Docker Compose for running ARM64 services with QEMU emulation on AMD64
+
+services:
+  runtime:
+    image: ghcr.io/hanzoai/runtime:latest
+    platform: linux/arm64/v8  # Force ARM64 with emulation
+    environment:
+      - DOCKER_DEFAULT_PLATFORM=linux/arm64/v8
+    networks:
+      - hanzo-network
+
+  analytics:
+    image: ghcr.io/hanzoai/analytics:latest
+    platform: linux/arm64/v8  # Force ARM64 with emulation
+    environment:
+      - DOCKER_DEFAULT_PLATFORM=linux/arm64/v8
+    networks:
+      - hanzo-network
+
+  iam:
+    image: ghcr.io/hanzoai/iam:latest
+    platform: linux/arm64  # Force ARM64 with emulation
+    environment:
+      - DOCKER_DEFAULT_PLATFORM=linux/arm64
+    networks:
+      - hanzo-network
+
+  ide:
+    image: ghcr.io/hanzoai/ide:latest
+    platform: linux/arm64/v8  # Force ARM64 with emulation
+    environment:
+      - DOCKER_DEFAULT_PLATFORM=linux/arm64/v8
+    networks:
+      - hanzo-network
+
+  chat:
+    image: ghcr.io/hanzoai/chat:latest
+    platform: linux/amd64  # Use AMD64 version
+    command: sh -c "npm run start 2>/dev/null || npm run serve 2>/dev/null || npm run dev 2>/dev/null || npm start 2>/dev/null || node server.js 2>/dev/null || node index.js 2>/dev/null || tail -f /dev/null"
+    networks:
+      - hanzo-network
