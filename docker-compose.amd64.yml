@@ -1,0 +1,28 @@
+# Docker Compose override for AMD64 platforms
+# Addresses platform compatibility issues with ARM64 images on AMD64 hosts
+
+services:
+  # Override services with platform issues
+  runtime:
+    platform: linux/amd64
+    image: ghcr.io/hanzoai/runtime:latest
+    environment:
+      - PLATFORM=amd64
+
+  analytics:
+    platform: linux/amd64
+    image: ghcr.io/hanzoai/analytics:latest
+    environment:
+      - PLATFORM=amd64
+
+  iam:
+    platform: linux/amd64
+    image: ghcr.io/hanzoai/iam:latest
+    environment:
+      - PLATFORM=amd64
+
+  ide:
+    platform: linux/amd64
+    image: ghcr.io/hanzoai/ide:latest
+    environment:
+      - PLATFORM=amd64
