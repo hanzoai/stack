@@ -1,288 +1,123 @@
-# Hanzo Stack
+# CLAUDE.md
 
-Complete AI infrastructure stack for running all Hanzo services together with seamless integration.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Overview
+## Hanzo Stack Architecture
 
-The Hanzo Stack provides a unified environment for running the core Hanzo AI services:
+The Hanzo Stack is a microservices-based AI infrastructure platform using Docker Compose. Services communicate through internal Docker networks, with the Router service acting as the central LLM gateway.
 
-- **Router (LLM Gateway)** - Unified API for 100+ LLM providers with cost tracking
-- **Chat** - AI chat interface with MCP integration and code execution
-- **Cloud** - AI Console, AI Infrastructure management and API usage analytics
-- **IAM** - Core Backend Identity and authentication services
-- **Search** - AI-powered search engine frontend
-- **Runtime** - Secure code execution environment
-- **Flow** - Visual workflow builder
-- **App Builder** - A low-code platform for building AI-powered applications
+### Service Communication Pattern
+- **Router (port 4000)** is the central LLM gateway that all services use for AI requests
+- Services route through internal Docker network names (e.g., `http://router:8000`)
+- Router handles provider selection, cost tracking, and sends analytics to Cloud service
+- Chat service uses Runtime for code execution and MCP for file operations
+- All database connections use internal Docker networks
 
-## Quick Start
+### Git Submodules Structure
+The project uses git submodules for modular development. Key submodules:
+- `services/llm` - Router/LLM Gateway implementation
+- `services/chat` - Chat interface
+- `services/search`, `services/cloud`, `services/runtime` - Core services
+- `iam/`, `mcp/`, `platform/` - Platform infrastructure
+- `sdk/`, `js-sdk/`, `python-sdk/` - Client SDKs
 
+## Essential Development Commands
+
+### Quick Development Workflow
 ```bash
-# Clone this repository
-git clone https://github.com/hanzoai/stack.git
-cd stack
-
-# Setup environment (copies env.example to .env)
+# Initial setup (copies .env.example to .env)
 make setup
 
-# Edit .env and add your API keys (at least one LLM provider)
-# Required: OPENAI_API_KEY, ANTHROPIC_API_KEY, or other provider
-
-# Start the stack
-make up
-
-# Or start in development mode with local repos
+# Start development mode with hot reload
 make dev
 
-# Check service status
+# View logs for debugging
+make dev-logs
+
+# Run tests
+npm test  # Runs Jest integration tests against real services
+
+# Check service health
+make health
 make status
 ```
 
-## Prerequisites
-
-- Docker and Docker Compose v2+
-- At least one LLM provider API key (OpenAI, Anthropic, etc.)
-- 8GB RAM minimum (16GB recommended for full stack)
-
-## Service Architecture
-
-### Core Services
-
-| Service | Port | Description |
-|---------|------|-------------|
-| App | 4000 | LLM Gateway - Routes requests to 100+ providers |
-| Router | 4000 | LLM Gateway - Routes requests to 100+ providers |
-| Chat | 3081 | Chat UI with code execution and MCP tools |
-| Cloud | 3001 | Dashboard for API tracking and analytics |
-| App Builder | 3002 | Low-code platform for building AI-powered applications |
-
-| Search | 3000 | AI-powered search engine |
-| Runtime | 3003 | Secure code execution environment |
-| Flow | 3006 | Visual workflow builder |
-
-### Infrastructure
-
-| Service | Port | Description |
-|---------|------|-------------|
-| PostgreSQL | 5432 | Primary database with pgvector |
-| Redis | 6379 | Caching and queues |
-| MongoDB | 27017 | Chat message storage |
-| MinIO | 9000/9001 | S3-compatible object storage |
-| Meilisearch | 7700 | Full-text search for Chat |
-
-### Development Tools (--tools flag)
-
-| Tool | Port | Description |
-|------|------|-------------|
-| Adminer | 8081 | Database UI |
-| Redis Commander | 8082 | Redis UI |
-| Mongo Express | 8083 | MongoDB UI |
-
-## Key Features
-
-### 1. Unified LLM Gateway (Router)
-
-- Single API endpoint for all LLM providers
-- Automatic provider detection based on available API keys
-- Cost tracking and usage analytics sent to Cloud
-- Request routing and load balancing
-- Supports OpenAI, Anthropic, Google, Together AI, and 20+ more
-
-### 2. Integrated Chat Experience
-
-- Multiple LLM providers via Router integration
-- Code execution through Runtime service
-- MCP tools for file operations and search
-- Persistent chat history in MongoDB
-- Optional Clerk authentication
-
-### 3. Cloud Dashboard Integration
-
-- Real-time API usage tracking from Router
-- Cost analytics per user/project
-- Service health monitoring
-- User and project management
-
-### 4. Secure Code Execution
-
-- Sandboxed execution via Runtime service
-- Support for Python, JavaScript, TypeScript, Bash
-- Resource limits and timeouts
-- Direct integration with Chat for interactive coding
-
-## Makefile Commands
-
+### Testing Commands
 ```bash
-# Quick Start
-make help          # Show all available commands
-make setup         # Configure environment
-make up            # Start production stack
-make dev           # Start development mode
-make status        # Check service status
+# Run all integration tests (uses real databases/services)
+npm test
 
-# Service Management
-make stop          # Stop all services
-make restart       # Restart services
-make ps            # List running services
-make health        # Health check all services
+# Run specific test suites
+npm run test:router   # Test Router/LLM Gateway
+npm run test:ide      # Test IDE service
+npm run test:stack    # Full stack integration test
 
-# Development
-make dev-up        # Start dev mode in background
-make dev-logs      # Show development logs
-make tools         # Start with dev tools (Adminer, etc.)
-make full          # Start all services including optional
+# Makefile test commands
+make test            # Run integration tests
+make test-router     # Test router functionality
+make test-full       # Run all tests
+```
 
-# Testing
-make test          # Run integration tests
-make test-router   # Test router functionality
-make test-full     # Run all tests
-
-# Database Access
+### Database Access
+```bash
 make psql          # Connect to PostgreSQL
 make redis-cli     # Connect to Redis
 make mongo-shell   # Connect to MongoDB
+```
 
-# Maintenance
+### Service Management
+```bash
+make restart       # Restart all services
+make stop          # Stop services
 make clean         # Remove containers and volumes
-make backup        # Backup all databases
-make update        # Pull latest images
+make logs SERVICE=router  # View specific service logs
 ```
 
-## Development Mode
+## Development Configuration
 
-When using `make dev`, the stack:
-- Mounts local repositories for hot-reload development
-- Enables debug logging across all services
-- Skips authentication for easier testing
-- Provides development tools with `--tools` flag
+### Environment Setup
+The `.env` file requires at least one LLM provider API key:
+- `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or other supported provider
+- Router auto-detects available providers from environment variables
 
+### Docker Compose Files
+- `compose.yml` - Production with pre-built images from ghcr.io
+- `compose.dev.yml` - Development with source mounting and hot reload
+- `docker-compose.essential.yml` - Core services only
+- `docker-compose.batteries.yml` - Full stack with all optional services
 
+### Configuration Files
+- `config/router-config.yaml` - LLM provider routing and model aliases
+- `config/router-extensions.py` - Custom router logic
+- `config/ide-config.toml` - IDE service settings
 
-## API Integration Examples
+## Testing Architecture
 
-### Using the Router
+Tests use Jest with real service connections (no mocks):
+- Tests in `tests/integration/` connect to actual databases and services
+- CI runs tests with real PostgreSQL, Redis, MongoDB via GitHub Actions
+- Test timeout is 30 seconds for service startup
+- Tests verify end-to-end workflows including LLM requests and analytics
 
-All services route LLM requests through the Router for unified access:
+## Service Ports Reference
 
-```bash
-# Example: Chat completion
-curl -X POST http://localhost:4000/v1/chat/completions \
-  -H "Authorization: Bearer sk-router-master-hanzo" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "gpt-3.5-turbo",
-    "messages": [{"role": "user", "content": "Hello, how are you?"}]
-  }'
-```
+| Service | Port | Internal Port |
+|---------|------|---------------|
+| Router | 4000 | 8000 |
+| Chat | 3081 | 8080 |
+| Cloud | 3001 | 3000 |
+| IDE | 3002 | 3000 |
+| Runtime | 3003 | 8001 |
+| Search | 3000 | 8080 |
+| PostgreSQL | 5432 | 5432 |
+| Redis | 6379 | 6379 |
+| MongoDB | 27017 | 27017 |
 
-### Service Integration Flow
+## Key Implementation Notes
 
-1. **Chat** → Makes LLM requests to **Router**
-2. **Router** → Routes to appropriate provider (OpenAI, Anthropic, etc.)
-3. **Router** → Tracks usage and sends analytics to **Cloud**
-4. **Cloud** → Displays usage dashboard and cost tracking
-5. **Chat** → Can execute code via **Runtime** service
-6. **Chat** → Uses **MCP** for file operations and tools
-
-## Environment Configuration
-
-Key environment variables in `.env`:
-
-```bash
-# LLM Providers (configure at least one)
-OPENAI_API_KEY=sk-...
-ANTHROPIC_API_KEY=sk-ant-...
-GOOGLE_API_KEY=...
-TOGETHER_API_KEY=...
-
-# Service Configuration
-ROUTER_MASTER_KEY=sk-router-master-hanzo
-ROUTER_UI_USERNAME=admin
-ROUTER_UI_PASSWORD=admin
-
-# Development Settings
-NODE_ENV=production  # or development
-SKIP_AUTH=true       # Skip auth in dev
-ENABLE_COST_TRACKING=true
-ENABLE_API_TRACKING=true
-```
-
-## Troubleshooting
-
-### Check Service Health
-
-```bash
-# View all service statuses
-docker compose ps
-
-# Check specific service logs
-docker compose logs router -f
-docker compose logs chat -f
-
-# Test service endpoints
-curl http://localhost:4000/health      # Router
-curl http://localhost:3081/api/health  # Chat
-curl http://localhost:3001/api/health  # Cloud
-```
-
-### Common Issues
-
-1. **No API keys configured**
-   ```bash
-   # Add at least one provider key to .env
-   OPENAI_API_KEY=sk-...
-   # Router auto-detects and enables providers
-   ```
-
-2. **Port conflicts**
-   ```bash
-   # Check for conflicts
-   make check-ports
-
-   # Override in .env
-   ROUTER_PORT=4001
-   ```
-
-3. **Services not connecting**
-   ```bash
-   # Check health and restart
-   make health
-   make restart
-   ```
-
-## Advanced Configuration
-
-### Custom Router Configuration
-
-Edit `config/router-config.yaml` for:
-- Model aliases and routing rules
-- Provider preferences and fallbacks
-- Rate limiting and quotas
-- Cost tracking customization
-
-### Enable Optional Services
-
-```bash
-# Start with development tools
-make tools
-
-# Start full stack with all services
-make full
-```
-
-## Security Notes
-
-- Default credentials are for development only
-- In production:
-  - Change all default passwords
-  - Enable proper authentication (Clerk, NextAuth)
-  - Use TLS/HTTPS for external access
-  - Review security settings per service
-
-## Contributing
-
-Contributions welcome! See individual service repositories for guidelines.
-
-## License
-
-MIT License - see individual service licenses for details.
+1. **Router is central** - All LLM requests must go through Router service for tracking and routing
+2. **Database per service** - Each service uses its own PostgreSQL schema or separate database
+3. **Hot reload in dev** - Development mode mounts source directories for immediate code changes
+4. **Real integration tests** - Tests connect to actual services, not mocks
+5. **Environment-based config** - Services auto-configure based on environment variables
+6. **Git submodules** - Use `make submodules-ensure` to keep submodules updated
