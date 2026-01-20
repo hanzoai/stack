@@ -6,11 +6,11 @@ services:
     restart: unless-stopped
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://hanzo:hanzo123@postgres:5432/hanzo}
-      - HANZO_HOST=datastore
-      - HANZO_PORT=8123
-      - HANZO_USER=${HANZO_USER}
-      - HANZO_PASSWORD=${HANZO_PASSWORD}
-      - HANZO_DATABASE=${HANZO_DATABASE}
+      - DATASTORE_HOST=datastore
+      - DATASTORE_PORT=8123
+      - DATASTORE_USER=${DATASTORE_USER}
+      - DATASTORE_PASSWORD=${DATASTORE_PASSWORD}
+      - DATASTORE_DB=${DATASTORE_DB}
       - REDIS_URL=${REDIS_URL:-redis://:hanzo123@redis:6379}
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}

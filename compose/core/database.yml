@@ -47,10 +47,10 @@ services:
     container_name: hanzo-datastore
     restart: unless-stopped
     environment:
-      - HANZO_USER=${HANZO_USER}
-      - HANZO_PASSWORD=${HANZO_PASSWORD}
-      - HANZO_DB=${HANZO_DATABASE}
-      - HANZO_DEFAULT_ACCESS_MANAGEMENT=1
+      - DATASTORE_USER=${DATASTORE_USER}
+      - DATASTORE_PASSWORD=${DATASTORE_PASSWORD}
+      - DATASTORE_DB=${DATASTORE_DB}
+      - DATASTORE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - datastore_data:/var/lib/hanzo-datastore
       - ./init-scripts/datastore:/docker-entrypoint-initdb.d

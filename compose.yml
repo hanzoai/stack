@@ -388,9 +388,9 @@ services:
       - DISABLE_SECURE_SSL_REDIRECT=true
       - IS_BEHIND_PROXY=false
       - CLICKHOUSE_HOST=datastore
-      - CLICKHOUSE_DATABASE=${HANZO_DB:-analytics}
-      - CLICKHOUSE_USER=${HANZO_USER:-hanzo}
-      - CLICKHOUSE_PASSWORD=${HANZO_PASSWORD:-hanzo123}
+      - CLICKHOUSE_DATABASE=${DATASTORE_DB:-analytics}
+      - CLICKHOUSE_USER=${DATASTORE_USER:-hanzo}
+      - CLICKHOUSE_PASSWORD=${DATASTORE_PASSWORD:-hanzo123}
     ports:
       - "${POSTHOG_PORT:-8010}:8000"
     depends_on:
@@ -417,16 +417,16 @@ services:
     image: hanzoai/datastore-server:latest
     container_name: hanzo-datastore
     environment:
-      - HANZO_DB=${HANZO_DB:-analytics}
-      - HANZO_USER=${HANZO_USER:-hanzo}
-      - HANZO_PASSWORD=${HANZO_PASSWORD:-hanzo123}
-      - HANZO_DEFAULT_ACCESS_MANAGEMENT=1
+      - DATASTORE_DB=${DATASTORE_DB:-analytics}
+      - DATASTORE_USER=${DATASTORE_USER:-hanzo}
+      - DATASTORE_PASSWORD=${DATASTORE_PASSWORD:-hanzo123}
+      - DATASTORE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
       - datastore_data:/var/lib/hanzo-datastore
       - datastore_logs:/var/log/hanzo-datastore-server
     ports:
-      - "${HANZO_HTTP_PORT:-8123}:8123"
-      - "${HANZO_NATIVE_PORT:-9009}:9000"
+      - "${DATASTORE_HTTP_PORT:-8123}:8123"
+      - "${DATASTORE_NATIVE_PORT:-9009}:9000"
     healthcheck:
       test: ["CMD", "hanzo-datastore-client", "--query", "SELECT 1"]
       interval: 10s
@@ -611,10 +611,10 @@ services:
       - "${ANALYTICS_PORT:-3010}:3000"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_analytics
-      - HANZO_URL=http://datastore:8123
-      - HANZO_DB=${HANZO_DB:-analytics}
-      - HANZO_USER=${HANZO_USER:-hanzo}
-      - HANZO_PASSWORD=${HANZO_PASSWORD:-hanzo123}
+      - DATASTORE_URL=http://datastore:8123
+      - DATASTORE_DB=${DATASTORE_DB:-analytics}
+      - DATASTORE_USER=${DATASTORE_USER:-hanzo}
+      - DATASTORE_PASSWORD=${DATASTORE_PASSWORD:-hanzo123}
       - NEXTAUTH_URL=http://localhost:3010
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-nextauth-secret}
       - APP_SECRET=${ANALYTICS_SECRET:-analytics-secret-change-me}
@@ -757,7 +757,7 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
       - ROUTER_URL=http://router:4000
       - ANALYTICS_URL=http://analytics:3000
-      - HANZO_URL=http://datastore:8123
+      - DATASTORE_URL=http://datastore:8123
       - IAM_URL=http://iam:8000
       - NEXT_PUBLIC_APP_URL=http://localhost:3091
       - PORT=3001
