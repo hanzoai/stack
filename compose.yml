@@ -1,8 +1,11 @@
-# Hanzo Stack - Working Services Only
-# Uses only services with available ghcr.io images
+# Hanzo Stack - Complete OSS Infrastructure
+# Local development with all services
 
 services:
-  # Core Infrastructure
+  # =============================================================================
+  # CORE DATABASES
+  # =============================================================================
+
   postgres:
     image: postgres:16-alpine
     container_name: hanzo-postgres
@@ -57,9 +60,67 @@ services:
     networks:
       - hanzo-network
 
-  minio:
+  # =============================================================================
+  # NEW OSS DATABASES
+  # =============================================================================
+
+  # Qdrant - Vector Database for AI/ML embeddings
+  vector:
+    image: qdrant/qdrant:latest
+    container_name: hanzo-vector
+    volumes:
+      - qdrant_data:/qdrant/storage
+    ports:
+      - "${QDRANT_PORT:-6333}:6333"
+      - "${QDRANT_GRPC_PORT:-6334}:6334"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:6333/readyz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # Valkey - Redis-compatible KV store (Redis fork)
+  kv:
+    image: valkey/valkey:7-alpine
+    container_name: hanzo-kv
+    command: valkey-server --requirepass ${VALKEY_PASSWORD:-hanzo123}
+    volumes:
+      - valkey_data:/data
+    ports:
+      - "${VALKEY_PORT:-6380}:6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "-a", "${VALKEY_PASSWORD:-hanzo123}", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # FerretDB - MongoDB-compatible document database (uses PostgreSQL)
+  documentdb:
+    image: ferretdb/ferretdb:latest
+    container_name: hanzo-documentdb
+    environment:
+      - FERRETDB_POSTGRESQL_URL=postgres://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_ferret?sslmode=disable
+    ports:
+      - "${FERRETDB_PORT:-27018}:27017"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "mongosh", "--port", "27017", "--eval", "db.runCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # MinIO - S3-compatible object storage
+  storage:
     image: minio/minio:latest
-    container_name: hanzo-minio
+    container_name: hanzo-storage
     command: server /data --console-address ":9001"
     environment:
       - MINIO_ROOT_USER=${MINIO_ROOT_USER:-minioadmin}
@@ -71,18 +132,19 @@ services:
       - "${MINIO_CONSOLE_PORT:-9001}:9001"
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - hanzo-network
 
-  meilisearch:
-    image: getmeili/meilisearch:v1.6
-    container_name: hanzo-meilisearch
+  # Meilisearch - Full-text search engine
+  search:
+    image: getmeili/meilisearch:latest
+    container_name: hanzo-search-engine
     environment:
       - MEILI_ENV=${MEILI_ENV:-development}
-      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-masterKey}
+      - MEILI_MASTER_KEY=${MEILISEARCH_MASTER_KEY:-hanzo-meili-master-key}
       - MEILI_NO_ANALYTICS=true
     volumes:
       - meilisearch_data:/meili_data
@@ -90,13 +152,334 @@ services:
       - "${MEILISEARCH_PORT:-7700}:7700"
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:7700/health"]
-      interval: 5s
+      interval: 10s
       timeout: 5s
       retries: 5
     networks:
       - hanzo-network
 
-  # Hanzo Services with Available Images
+  # =============================================================================
+  # EXECUTION LAYER
+  # =============================================================================
+
+  # Temporal - Workflow Orchestration Engine
+  tasks:
+    image: temporalio/auto-setup:latest
+    container_name: hanzo-tasks
+    environment:
+      - DB=postgresql
+      - DB_PORT=5432
+      - POSTGRES_USER=${POSTGRES_USER:-hanzo}
+      - POSTGRES_PWD=${POSTGRES_PASSWORD:-hanzo123}
+      - POSTGRES_SEEDS=postgres
+      - DYNAMIC_CONFIG_FILE_PATH=/etc/temporal/dynamicconfig/dynamicconfig.yaml
+    volumes:
+      - ./config/temporal-dynamicconfig.yaml:/etc/temporal/dynamicconfig/dynamicconfig.yaml:ro
+    ports:
+      - "${TEMPORAL_PORT:-7233}:7233"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "tctl", "--address", "localhost:7233", "cluster", "health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # Temporal Web UI
+  tasks-ui:
+    image: temporalio/ui:latest
+    container_name: hanzo-tasks-ui
+    environment:
+      - TEMPORAL_ADDRESS=tasks:7233
+      - TEMPORAL_CORS_ORIGINS=http://localhost:${TEMPORAL_UI_PORT:-8088}
+    ports:
+      - "${TEMPORAL_UI_PORT:-8088}:8080"
+    depends_on:
+      - tasks
+    networks:
+      - hanzo-network
+
+  # NATS - High-Performance Message Queue (Apache 2.0)
+  pubsub:
+    image: nats:2.10-alpine
+    container_name: hanzo-pubsub
+    command:
+      - "--jetstream"
+      - "--store_dir=/data"
+      - "--http_port=8222"
+    ports:
+      - "${NATS_PORT:-4222}:4222"
+      - "${NATS_HTTP_PORT:-8222}:8222"
+    volumes:
+      - pubsub_data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8222/healthz"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # Nuclio - Serverless Functions Platform
+  functions:
+    image: quay.io/nuclio/dashboard:stable-amd64
+    container_name: hanzo-functions
+    environment:
+      - NUCLIO_DASHBOARD_EXTERNAL_IP_ADDRESSES=localhost
+      - NUCLIO_DASHBOARD_REGISTRY_URL=${NUCLIO_REGISTRY_URL:-}
+      - NUCLIO_DASHBOARD_RUN_REGISTRY_URL=${NUCLIO_RUN_REGISTRY_URL:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "${NUCLIO_PORT:-8070}:8070"
+    networks:
+      - hanzo-network
+
+  # =============================================================================
+  # OBSERVABILITY STACK
+  # =============================================================================
+
+  # Loki - Log aggregation
+  logs:
+    image: grafana/loki:latest
+    container_name: hanzo-logs
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - loki_data:/loki
+    ports:
+      - "${LOKI_PORT:-3100}:3100"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3100/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # Tempo - Distributed tracing backend
+  traces:
+    image: grafana/tempo:latest
+    container_name: hanzo-traces
+    command: ["-config.file=/etc/tempo.yaml"]
+    volumes:
+      - ./config/tempo.yaml:/etc/tempo.yaml:ro
+      - tempo_data:/tmp/tempo
+    ports:
+      - "${TEMPO_PORT:-3200}:3200"
+      - "${TEMPO_OTLP_GRPC:-4320}:4317"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3200/ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # OpenTelemetry Collector - Unified telemetry pipeline
+  telemetry:
+    image: otel/opentelemetry-collector:latest
+    container_name: hanzo-telemetry
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./config/otel-collector.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "${OTEL_GRPC_PORT:-4317}:4317"
+      - "${OTEL_HTTP_PORT:-4318}:4318"
+      - "${OTEL_METRICS_PORT:-8888}:8888"
+    depends_on:
+      - logs
+      - traces
+      - metrics
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:13133/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # VictoriaMetrics - Time-series database for metrics
+  metrics:
+    image: victoriametrics/victoria-metrics:latest
+    container_name: hanzo-metrics
+    command:
+      - "--storageDataPath=/victoria-metrics-data"
+      - "--httpListenAddr=:8428"
+      - "--retentionPeriod=30d"
+    volumes:
+      - victoria_data:/victoria-metrics-data
+    ports:
+      - "${VICTORIA_PORT:-8428}:8428"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8428/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # Grafana - Observability dashboards
+  dashboards:
+    image: grafana/grafana:latest
+    container_name: hanzo-dashboards
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GF_SECURITY_ADMIN_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD:-hanzo123}
+      - GF_INSTALL_PLUGINS=grafana-clickhouse-datasource
+      - GF_SERVER_ROOT_URL=http://localhost:${GRAFANA_DASHBOARD_PORT:-3001}
+      - GF_SERVER_HTTP_PORT=3000
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./config/grafana/provisioning:/etc/grafana/provisioning:ro
+    ports:
+      - "${GRAFANA_DASHBOARD_PORT:-3001}:3000"
+    depends_on:
+      - logs
+      - traces
+      - metrics
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # PostHog - Product analytics and insights
+  insights:
+    image: posthog/posthog:latest
+    container_name: hanzo-insights
+    environment:
+      - DATABASE_URL=postgres://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_posthog
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - SECRET_KEY=${POSTHOG_SECRET:-hanzo-posthog-secret-key-change-me}
+      - SITE_URL=http://localhost:${POSTHOG_PORT:-8010}
+      - DISABLE_SECURE_SSL_REDIRECT=true
+      - IS_BEHIND_PROXY=false
+      - CLICKHOUSE_HOST=clickhouse
+      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DB:-analytics}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-hanzo}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-hanzo123}
+    ports:
+      - "${POSTHOG_PORT:-8010}:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      clickhouse:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/_health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # =============================================================================
+  # EXISTING INFRASTRUCTURE (kept from original)
+  # =============================================================================
+
+  # ClickHouse - Analytics Data Warehouse (Apache 2.0)
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    container_name: hanzo-clickhouse
+    environment:
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-analytics}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-hanzo}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-hanzo123}
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse_logs:/var/log/clickhouse-server
+    ports:
+      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
+      - "${CLICKHOUSE_NATIVE_PORT:-9009}:9000"
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # KMS - Infisical Fork - Secrets Management (MIT)
+  kms:
+    image: ghcr.io/hanzoai/kms:latest
+    build:
+      context: ../kms
+      dockerfile: Dockerfile.standalone-infisical
+    container_name: hanzo-kms
+    environment:
+      - NODE_ENV=production
+      - ENCRYPTION_KEY=${KMS_ENCRYPTION_KEY:-6de33a4e5d9c57cf9e41b7147a0aff04}
+      - AUTH_SECRET=${KMS_AUTH_SECRET:-a-very-long-secret-for-auth}
+      - DB_CONNECTION_URI=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_kms
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - SITE_URL=${KMS_SITE_URL:-http://localhost:8071}
+      - SMTP_HOST=${SMTP_HOST:-}
+      - SMTP_PORT=${SMTP_PORT:-587}
+      - SMTP_USERNAME=${SMTP_USERNAME:-}
+      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
+      - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-}
+      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Hanzo KMS}
+      - TELEMETRY_ENABLED=false
+    ports:
+      - "${KMS_PORT:-8071}:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/status"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - hanzo-network
+
+  # Host - PocketHost Multi-tenant PocketBase Hosting (MIT)
+  host:
+    image: ghcr.io/hanzoai/host:latest
+    build:
+      context: ../../host
+      dockerfile: Dockerfile
+    container_name: hanzo-host
+    environment:
+      - PH_HOME=/data
+      - PH_MOTHERSHIP_URL=http://host:3001
+      - PH_EDGE_APEX_DOMAIN=${HOST_APEX_DOMAIN:-hanzo.local}
+      - PH_EDGE_SSL=${HOST_SSL:-false}
+      - PH_MOTHERSHIP_ADMIN_USERNAME=${HOST_ADMIN_USERNAME:-admin}
+      - PH_MOTHERSHIP_ADMIN_PASSWORD=${HOST_ADMIN_PASSWORD:-admin}
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_host
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+    volumes:
+      - host_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    ports:
+      - "${HOST_MOTHERSHIP_PORT:-3090}:3001"
+      - "${HOST_EDGE_PORT:-8090}:8090"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hanzo-network
+
+  # =============================================================================
+  # HANZO SERVICES
+  # =============================================================================
+
   router:
     image: ghcr.io/hanzoai/router:latest
     container_name: hanzo-router
@@ -159,8 +542,8 @@ services:
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_chat
       - MONGO_URI=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/${MONGO_DATABASE:-hanzo}?authSource=admin
-      - MEILI_URL=http://meilisearch:7700
-      - MEILI_MASTER_KEY=${MEILI_MASTER_KEY:-masterKey}
+      - MEILI_URL=http://search:7700
+      - MEILI_MASTER_KEY=${MEILISEARCH_MASTER_KEY:-hanzo-meili-master-key}
       - ROUTER_URL=http://router:4000/v1
       - ALLOW_SOCIAL_LOGIN=false
       - CREDS_IV=${CREDS_IV}
@@ -189,7 +572,7 @@ services:
     depends_on:
       mongodb:
         condition: service_healthy
-      meilisearch:
+      search:
         condition: service_healthy
       router:
         condition: service_started
@@ -203,11 +586,19 @@ services:
       - "${ANALYTICS_PORT:-3010}:3000"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_analytics
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-analytics}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-hanzo}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-hanzo123}
       - NEXTAUTH_URL=http://localhost:3010
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-nextauth-secret}
+      - APP_SECRET=${ANALYTICS_SECRET:-analytics-secret-change-me}
       - DISABLE_SIGNUPS=false
+      - DISABLE_TELEMETRY=1
     depends_on:
       postgres:
+        condition: service_healthy
+      clickhouse:
         condition: service_healthy
     networks:
       - hanzo-network
@@ -271,33 +662,256 @@ services:
     networks:
       - hanzo-network
 
-  # Nginx Proxy with Analytics
-  nginx:
-    image: nginx:alpine
-    container_name: hanzo-nginx
+  # Flow - Visual Workflow Builder (MIT - LangFlow fork)
+  flow:
+    image: ghcr.io/hanzoai/flow:latest
+    build:
+      context: ../../flow
+      dockerfile: Dockerfile
+    container_name: hanzo-flow
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_flow
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - ROUTER_URL=http://router:4000/v1
+      - ROUTER_API_KEY=${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
+      - PORT=3006
     ports:
-      - "80:80"
+      - "${FLOW_PORT:-3006}:3006"
     volumes:
-      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./config/nginx-default.conf:/etc/nginx/conf.d/default.conf:ro
+      - flow_data:/app/data
     depends_on:
-      - router
-      - chat
-      - analytics
-      - ide
-      - runtime
-      - iam
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      router:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3006/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     networks:
       - hanzo-network
 
+  # Search App - AI-Powered Search Engine (MIT - Morphic fork)
+  search-app:
+    image: ghcr.io/hanzoai/search:latest
+    build:
+      context: ../../search
+      dockerfile: Dockerfile
+    container_name: hanzo-search-app
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_search
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - ROUTER_URL=http://router:4000
+      - ROUTER_API_KEY=${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
+      - NEXT_PUBLIC_APP_URL=http://localhost:3000
+    ports:
+      - "${SEARCH_APP_PORT:-3000}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      router:
+        condition: service_started
+    networks:
+      - hanzo-network
+
+  # Console - Cloud Dashboard & Admin UI
+  console:
+    image: ghcr.io/hanzoai/console:latest
+    build:
+      context: ../../console
+      dockerfile: Dockerfile
+      target: production
+    container_name: hanzo-console
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_console
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - ROUTER_URL=http://router:4000
+      - ANALYTICS_URL=http://analytics:3000
+      - CLICKHOUSE_URL=http://clickhouse:8123
+      - IAM_URL=http://iam:8000
+      - NEXT_PUBLIC_APP_URL=http://localhost:3091
+      - PORT=3001
+    ports:
+      - "${CONSOLE_PORT:-3091}:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      router:
+        condition: service_started
+      analytics:
+        condition: service_started
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3001/api/health', r => process.exit(r.statusCode === 200 ? 0 : 1))"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - hanzo-network
+
+  # Gateway - API Gateway & Proxy (MIT)
+  gateway:
+    image: ghcr.io/hanzoai/gateway:latest
+    build:
+      context: ../../gateway
+      dockerfile: Dockerfile
+    container_name: hanzo-gateway
+    environment:
+      - NODE_ENV=production
+      - PORT=3030
+      - ROUTER_URL=http://router:4000
+      - IAM_URL=http://iam:8000
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - GATEWAY_IDENTITY=did:hanzo:gateway
+    ports:
+      - "${GATEWAY_PORT:-3030}:3030"
+    depends_on:
+      router:
+        condition: service_started
+      iam:
+        condition: service_started
+    networks:
+      - hanzo-network
+
+  # Prometheus - Metrics Collection (Apache 2.0)
+  prometheus:
+    image: prom/prometheus:v2.48.0
+    container_name: hanzo-prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+      - '--web.enable-remote-write-receiver'
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    networks:
+      - hanzo-network
+
+  # Promtail - Log Shipper for Loki (AGPL-3.0)
+  promtail:
+    image: grafana/promtail:2.9.3
+    container_name: hanzo-promtail
+    command: -config.file=/etc/promtail/promtail-config.yml
+    volumes:
+      - ./config/promtail-config.yml:/etc/promtail/promtail-config.yml:ro
+      - /var/log:/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+    depends_on:
+      - logs
+    networks:
+      - hanzo-network
+
+  # Cloud - API Backend & Knowledge Base (Apache 2.0 - Casibase fork)
+  cloud:
+    image: ghcr.io/hanzoai/cloud:latest
+    build:
+      context: ../../cloud
+      dockerfile: Dockerfile
+      target: STANDARD
+    container_name: hanzo-cloud
+    environment:
+      - RUNNING_IN_DOCKER=true
+      - driverName=postgres
+      - dataSourceName=user=${POSTGRES_USER:-hanzo} password=${POSTGRES_PASSWORD:-hanzo123} host=postgres port=5432 sslmode=disable dbname=${POSTGRES_DB:-hanzo}_cloud
+      - redisEndpoint=redis:6379
+      - redisPassword=${REDIS_PASSWORD:-hanzo123}
+      - httpport=8000
+    ports:
+      - "${CLOUD_PORT:-8080}:8000"
+    volumes:
+      - cloud_files:/files
+      - cloud_logs:/logs
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hanzo-network
+
+  # Platform - PaaS Deployment Platform with Built-in Proxy (Apache 2.0 - Dokploy fork)
+  platform:
+    image: ghcr.io/hanzoai/platform:latest
+    build:
+      context: ../../platform
+      dockerfile: Dockerfile.ci
+    container_name: hanzo-platform
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_platform
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - SECRET_KEY=${PLATFORM_SECRET_KEY:-your-platform-secret-key}
+      - NODE_ENV=production
+      - DOMAIN=${DOMAIN:-hanzo.local}
+      - LETSENCRYPT_EMAIL=${LETSENCRYPT_EMAIL:-admin@hanzo.ai}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "${PLATFORM_PORT:-3002}:3000"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - platform_data:/app/.platform
+      - platform_certs:/etc/letsencrypt
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - hanzo-network
+
+# =============================================================================
+# VOLUMES
+# =============================================================================
+
 volumes:
+  # Core databases
   postgres_data:
   redis_data:
   mongodb_data:
+
+  # New OSS databases
+  qdrant_data:
+  valkey_data:
   minio_data:
   meilisearch_data:
+
+  # Analytics
+  clickhouse_data:
+  clickhouse_logs:
+
+  # Observability
+  loki_data:
+  tempo_data:
+  victoria_data:
+  grafana_data:
+  prometheus_data:
+
+  # Execution layer
+  pubsub_data:
+
+  # Services
+  host_data:
   chat_uploads:
+  flow_data:
+  cloud_files:
+  cloud_logs:
+  platform_data:
+  platform_certs:
+
+# =============================================================================
+# NETWORKS
+# =============================================================================
 
 networks:
   hanzo-network:
-    driver: bridge
+    external: true

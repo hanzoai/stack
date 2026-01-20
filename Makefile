@@ -11,6 +11,7 @@ NC := \033[0m # No Color
 # Default compose files (single, DRY)
 COMPOSE := docker compose -f compose.yml
 COMPOSE_DEV := docker compose -f compose.dev.yml
+COMPOSE_CORE := docker compose -f compose.core.yml
 
 # Default target
 .DEFAULT_GOAL := help
@@ -57,6 +58,13 @@ help:
 	@echo ""
     @echo "$(YELLOW)Profiles:$(NC)"
     @echo "  make tools         - Start dev tools (Adminer, etc.)"
+	@echo ""
+	@echo "$(YELLOW)Core Stack (7 Services):$(NC)"
+	@echo "  make core-up       - Start core services (analytics, datastore, base, iam, kms, commerce, marketing)"
+	@echo "  make core-down     - Stop core services"
+	@echo "  make core-status   - Check core service status"
+	@echo "  make core-logs     - View core service logs"
+	@echo "  make core-build    - Build core service images"
 	@echo ""
 	@echo "$(YELLOW)Logs:$(NC)"
 	@echo "  make logs          - View all logs"
@@ -211,6 +219,79 @@ tools:
 full:
 	@echo "$(BLUE)Starting dev stack with tools...$(NC)"
 	@COMPOSE_PROFILES=tools $(COMPOSE_DEV) up -d
+
+# ===== Core Stack (7 Essential Services) =====
+# Services: analytics, datastore, base, iam, kms, commerce, marketing
+
+.PHONY: core-setup
+core-setup:
+	@echo "$(BLUE)Setting up Core Stack environment...$(NC)"
+	@if [ ! -f .env.core ]; then \
+		cp env.core.example .env.core; \
+		echo "$(YELLOW)Created .env.core from template. Please configure it.$(NC)"; \
+	fi
+
+.PHONY: core-up
+core-up: core-setup
+	@echo "$(BLUE)Starting Hanzo Core Stack (7 services)...$(NC)"
+	@$(COMPOSE_CORE) --env-file .env.core up -d
+	@echo ""
+	@make core-status
+
+.PHONY: core-down
+core-down:
+	@echo "$(BLUE)Stopping Core Stack...$(NC)"
+	@$(COMPOSE_CORE) --env-file .env.core down
+
+.PHONY: core-restart
+core-restart:
+	@echo "$(BLUE)Restarting Core Stack...$(NC)"
+	@$(COMPOSE_CORE) --env-file .env.core restart
+	@make core-status
+
+.PHONY: core-status
+core-status:
+	@echo "$(BLUE)Core Stack Status:$(NC)"
+	@echo ""
+	@$(COMPOSE_CORE) --env-file .env.core ps
+	@echo ""
+	@echo "$(GREEN)Service URLs:$(NC)"
+	@echo "  1. Analytics (Umami):     http://localhost:$${ANALYTICS_PORT:-3010}"
+	@echo "  2. Datastore (ClickHouse): http://localhost:$${CLICKHOUSE_HTTP_PORT:-8123}"
+	@echo "  3. Base (PocketBase):     http://localhost:$${BASE_PORT:-8090}"
+	@echo "  4. IAM (Casdoor):         http://localhost:$${IAM_PORT:-8000}"
+	@echo "  5. KMS (Infisical):       http://localhost:$${KMS_PORT:-8070}"
+	@echo "  6. Commerce:              http://localhost:$${COMMERCE_PORT:-8001}"
+	@echo "  7. Marketing:             http://localhost:$${MARKETING_PORT:-8002}"
+	@echo ""
+	@echo "$(YELLOW)Infrastructure:$(NC)"
+	@echo "  PostgreSQL:  localhost:$${POSTGRES_PORT:-5432}"
+	@echo "  Redis:       localhost:$${REDIS_PORT:-6379}"
+	@echo "  NATS:        localhost:$${NATS_PORT:-4222}"
+
+.PHONY: core-logs
+core-logs:
+	@$(COMPOSE_CORE) --env-file .env.core logs -f
+
+.PHONY: core-logs-%
+core-logs-%:
+	@$(COMPOSE_CORE) --env-file .env.core logs -f $*
+
+.PHONY: core-build
+core-build:
+	@echo "$(BLUE)Building Core Stack images...$(NC)"
+	@$(COMPOSE_CORE) --env-file .env.core build
+
+.PHONY: core-pull
+core-pull:
+	@echo "$(BLUE)Pulling Core Stack images...$(NC)"
+	@$(COMPOSE_CORE) --env-file .env.core pull
+
+.PHONY: core-clean
+core-clean:
+	@echo "$(YELLOW)Cleaning Core Stack containers and volumes...$(NC)"
+	@$(COMPOSE_CORE) --env-file .env.core down -v
+	@echo "$(GREEN)Core Stack cleaned!$(NC)"
 
 # ===== Logs =====
 .PHONY: logs

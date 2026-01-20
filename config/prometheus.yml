@@ -1,0 +1,62 @@
+# Hanzo Stack - Prometheus Configuration
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+alerting:
+  alertmanagers: []
+
+rule_files: []
+
+scrape_configs:
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Hanzo Router (LiteLLM)
+  - job_name: 'router'
+    static_configs:
+      - targets: ['router:4000']
+    metrics_path: /metrics
+
+  # Hanzo IAM
+  - job_name: 'iam'
+    static_configs:
+      - targets: ['iam:8000']
+    metrics_path: /metrics
+
+  # Hanzo Analytics
+  - job_name: 'analytics'
+    static_configs:
+      - targets: ['analytics:3000']
+    metrics_path: /metrics
+
+  # Hanzo Gateway
+  - job_name: 'gateway'
+    static_configs:
+      - targets: ['gateway:3030']
+    metrics_path: /metrics
+
+  # PostgreSQL (if postgres_exporter is added)
+  # - job_name: 'postgres'
+  #   static_configs:
+  #     - targets: ['postgres-exporter:9187']
+
+  # Redis
+  - job_name: 'redis'
+    static_configs:
+      - targets: ['redis:6379']
+    metrics_path: /metrics
+
+  # ClickHouse
+  - job_name: 'clickhouse'
+    static_configs:
+      - targets: ['clickhouse:8123']
+    metrics_path: /metrics
+
+  # MinIO
+  - job_name: 'minio'
+    static_configs:
+      - targets: ['minio:9000']
+    metrics_path: /minio/v2/metrics/cluster

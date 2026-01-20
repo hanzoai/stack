@@ -286,3 +286,19 @@ Contributions welcome! See individual service repositories for guidelines.
 ## License
 
 MIT License - see individual service licenses for details.
+
+## Context for All AI Assistants
+
+This file (`LLM.md`) is symlinked as:
+- `.AGENTS.md`
+- `CLAUDE.md`
+- `QWEN.md`
+- `GEMINI.md`
+
+All files reference the same knowledge base. Updates here propagate to all AI systems.
+
+## Rules for AI Assistants
+
+1. **ALWAYS** update LLM.md with significant discoveries
+2. **NEVER** commit symlinked files (.AGENTS.md, CLAUDE.md, etc.) - they're in .gitignore
+3. **NEVER** create random summary files - update THIS file

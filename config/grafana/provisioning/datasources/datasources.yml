@@ -1,0 +1,44 @@
+# Hanzo Stack - Grafana Datasources
+apiVersion: 1
+
+datasources:
+  # Prometheus for metrics
+  - name: Prometheus
+    type: prometheus
+    access: proxy
+    url: http://prometheus:9090
+    isDefault: true
+    editable: true
+
+  # Loki for logs
+  - name: Loki
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    editable: true
+
+  # ClickHouse for analytics data
+  - name: ClickHouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    url: http://clickhouse:8123
+    jsonData:
+      defaultDatabase: analytics
+      username: hanzo
+    secureJsonData:
+      password: hanzo123
+    editable: true
+
+  # PostgreSQL for application data
+  - name: PostgreSQL
+    type: postgres
+    url: postgres:5432
+    database: hanzo
+    user: hanzo
+    secureJsonData:
+      password: hanzo123
+    jsonData:
+      sslmode: disable
+      maxOpenConns: 10
+      maxIdleConns: 10
+    editable: true
