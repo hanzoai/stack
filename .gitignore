@@ -1,9 +1,64 @@
-node_modules
+# Dependencies
+node_modules/
+.pnpm-store/
 
+# Environment files (NEVER commit these!)
+.env
+.env.*
+!.env.example
+!.env.*.example
 
+# Secrets and credentials
+*.secret
+*.key
+*.pem
+.jwt_secret
+*_secret
+*.credentials
+credentials.json
+secrets.json
+data/build/
 
+# Claude/AI symlinks
 AGENTS.md
 CLAUDE.md
 GEMINI.md
 GROK.md
 QWEN.md
+.claude/
+
+# Build artifacts
+dist/
+build/
+*.log
+logs/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+.venv/
+venv/
+
+# Docker
+docker-compose.override.yml
+
+# Test artifacts
+test-results.txt
+*.test.log
+coverage/
+
+# Temporary files
+*.tmp
+*.temp
+gh_*/
