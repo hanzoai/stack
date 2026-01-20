@@ -8,6 +8,7 @@ The Hanzo Stack is a microservices-based AI infrastructure platform using Docker
 
 ### Service Communication Pattern
 - **Router (port 4000)** is the central LLM gateway that all services use for AI requests
+- **Team (port 8087)** provides project management, tasks, documents, and collaboration
 - Services route through internal Docker network names (e.g., `http://router:8000`)
 - Router handles provider selection, cost tracking, and sends analytics to Cloud service
 - Chat service uses Runtime for code execution and MCP for file operations
