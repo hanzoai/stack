@@ -92,14 +92,14 @@ router_settings:
   max_retries: 2
   request_timeout: 600
   telemetry: true
-  success_callback: ["langfuse"]
-  failure_callback: ["langfuse"]
+  success_callback: ["console"]
+  failure_callback: ["console"]
   set_verbose: false
   json_logs: true
   # Hanzo Console integration
-  langfuse_public_key: pk_lf_hanzo
-  langfuse_secret_key: os.environ/LANGFUSE_SECRET_KEY
-  langfuse_host: http://cloud-web:3001
+  console_public_key: os.environ/CONSOLE_PUBLIC_KEY
+  console_secret_key: os.environ/CONSOLE_SECRET_KEY
+  console_host: os.environ/CONSOLE_HOST
 
 # General Settings
 general_settings:

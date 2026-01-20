@@ -46,7 +46,7 @@ services:
 
   # Team - Transactor Service
   team-transactor:
-    image: hardcoreeng/transactor:${TEAM_VERSION:-v0.7.350}
+    image: hanzoai/team-transactor:${TEAM_VERSION:-latest}
     container_name: hanzo-team-transactor
     environment:
       - SERVER_PORT=3333
@@ -72,7 +72,7 @@ services:
 
   # Team - Account Service
   team-account:
-    image: hardcoreeng/account:${TEAM_VERSION:-v0.7.350}
+    image: hanzoai/team-account:${TEAM_VERSION:-latest}
     container_name: hanzo-team-account
     environment:
       - SERVER_PORT=3000
@@ -96,7 +96,7 @@ services:
 
   # Team - Collaborator Service
   team-collaborator:
-    image: hardcoreeng/collaborator:${TEAM_VERSION:-v0.7.350}
+    image: hanzoai/team-collaborator:${TEAM_VERSION:-latest}
     container_name: hanzo-team-collaborator
     environment:
       - COLLABORATOR_PORT=3078
@@ -114,7 +114,7 @@ services:
 
   # Team - Workspace Service
   team-workspace:
-    image: hardcoreeng/workspace:${TEAM_VERSION:-v0.7.350}
+    image: hanzoai/team-workspace:${TEAM_VERSION:-latest}
     container_name: hanzo-team-workspace
     environment:
       - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
@@ -138,7 +138,7 @@ services:
 
   # Team - Full-text Search Service
   team-fulltext:
-    image: hardcoreeng/fulltext:${TEAM_VERSION:-v0.7.350}
+    image: hanzoai/team-fulltext:${TEAM_VERSION:-latest}
     container_name: hanzo-team-fulltext
     environment:
       - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
@@ -180,7 +180,7 @@ services:
 
   # Team - Rekoni OCR Service
   team-rekoni:
-    image: hardcoreeng/rekoni-service:${TEAM_VERSION:-v0.7.350}
+    image: hanzoai/team-rekoni:${TEAM_VERSION:-latest}
     container_name: hanzo-team-rekoni
     environment:
       - SECRET=${TEAM_SECRET:-team-secret-key}
@@ -194,7 +194,7 @@ services:
 
   # Team - Stats Service
   team-stats:
-    image: hardcoreeng/stats:${TEAM_VERSION:-v0.7.350}
+    image: hanzoai/team-stats:${TEAM_VERSION:-latest}
     container_name: hanzo-team-stats
     environment:
       - PORT=4900
@@ -205,7 +205,7 @@ services:
 
   # Team - Frontend
   team-front:
-    image: hardcoreeng/front:${TEAM_VERSION:-v0.7.350}
+    image: hanzoai/team-front:${TEAM_VERSION:-latest}
     container_name: hanzo-team-front
     environment:
       - SERVER_PORT=8080
