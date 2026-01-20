@@ -1,0 +1,16 @@
+# Docker Compose Override for Port Conflict Resolution
+# This file overrides default ports to avoid conflicts with existing services
+
+services:
+  postgres:
+    ports:
+      - "5433:5432"  # Map to 5433 to avoid conflict with local PostgreSQL
+
+  redis:
+    ports:
+      - "6380:6379"  # Map to 6380 to avoid conflict with ai-platform-redis
+
+  minio:
+    ports:
+      - "9002:9000"  # Map to 9002 to avoid conflict with clickhouse
+      - "9003:9001"  # Map console to 9003

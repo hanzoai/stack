@@ -112,12 +112,12 @@ general_settings:
   # Enable key validation with Cloud
   enable_key_based_auth: false
   # key_management_system: "cloud"
-  
+
 # MCP Settings
 mcp_servers:
-  hanzo-mcp:
+  hanzo_mcp:
     command: uvx
-    args: 
+    args:
       - hanzo-mcp
     env:
       WORKSPACE_PATH: /workspace

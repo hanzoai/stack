@@ -1,6 +1,7 @@
-import { describe, it, expect } from 'vitest'
-import { exec } from 'child_process'
-import { promisify } from 'util'
+const { describe, it, expect } = require('@jest/globals');
+const { exec } = require('child_process');
+const { promisify } = require('util');
+const testConfig = require('../test-config');
 
 const execAsync = promisify(exec)
 
