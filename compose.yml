@@ -387,10 +387,10 @@ services:
       - SITE_URL=http://localhost:${POSTHOG_PORT:-8010}
       - DISABLE_SECURE_SSL_REDIRECT=true
       - IS_BEHIND_PROXY=false
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DB:-analytics}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-hanzo}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-hanzo123}
+      - CLICKHOUSE_HOST=datastore
+      - CLICKHOUSE_DATABASE=${HANZO_DB:-analytics}
+      - CLICKHOUSE_USER=${HANZO_USER:-hanzo}
+      - CLICKHOUSE_PASSWORD=${HANZO_PASSWORD:-hanzo123}
     ports:
       - "${POSTHOG_PORT:-8010}:8000"
     depends_on:
@@ -398,7 +398,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      clickhouse:
+      datastore:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/_health"]
@@ -412,23 +412,23 @@ services:
   # EXISTING INFRASTRUCTURE (kept from original)
   # =============================================================================
 
-  # ClickHouse - Analytics Data Warehouse (Apache 2.0)
-  clickhouse:
-    image: clickhouse/clickhouse-server:24-alpine
-    container_name: hanzo-clickhouse
+  # Hanzo Datastore - Analytics Data Warehouse (Apache 2.0)
+  datastore:
+    image: hanzoai/datastore-server:latest
+    container_name: hanzo-datastore
     environment:
-      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-analytics}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-hanzo}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-hanzo123}
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+      - HANZO_DB=${HANZO_DB:-analytics}
+      - HANZO_USER=${HANZO_USER:-hanzo}
+      - HANZO_PASSWORD=${HANZO_PASSWORD:-hanzo123}
+      - HANZO_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
-      - clickhouse_data:/var/lib/clickhouse
-      - clickhouse_logs:/var/log/clickhouse-server
+      - datastore_data:/var/lib/hanzo-datastore
+      - datastore_logs:/var/log/hanzo-datastore-server
     ports:
-      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
-      - "${CLICKHOUSE_NATIVE_PORT:-9009}:9000"
+      - "${HANZO_HTTP_PORT:-8123}:8123"
+      - "${HANZO_NATIVE_PORT:-9009}:9000"
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      test: ["CMD", "hanzo-datastore-client", "--query", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -611,10 +611,10 @@ services:
       - "${ANALYTICS_PORT:-3010}:3000"
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_analytics
-      - CLICKHOUSE_URL=http://clickhouse:8123
-      - CLICKHOUSE_DB=${CLICKHOUSE_DB:-analytics}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER:-hanzo}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD:-hanzo123}
+      - HANZO_URL=http://datastore:8123
+      - HANZO_DB=${HANZO_DB:-analytics}
+      - HANZO_USER=${HANZO_USER:-hanzo}
+      - HANZO_PASSWORD=${HANZO_PASSWORD:-hanzo123}
       - NEXTAUTH_URL=http://localhost:3010
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-your-nextauth-secret}
       - APP_SECRET=${ANALYTICS_SECRET:-analytics-secret-change-me}
@@ -623,7 +623,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      clickhouse:
+      datastore:
         condition: service_healthy
     networks:
       - hanzo-network
@@ -757,7 +757,7 @@ services:
       - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
       - ROUTER_URL=http://router:4000
       - ANALYTICS_URL=http://analytics:3000
-      - CLICKHOUSE_URL=http://clickhouse:8123
+      - HANZO_URL=http://datastore:8123
       - IAM_URL=http://iam:8000
       - NEXT_PUBLIC_APP_URL=http://localhost:3091
       - PORT=3001
@@ -911,8 +911,8 @@ volumes:
   meilisearch_data:
 
   # Analytics
-  clickhouse_data:
-  clickhouse_logs:
+  datastore_data:
+  datastore_logs:
 
   # Observability
   loki_data:

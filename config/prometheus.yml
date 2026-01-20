@@ -49,10 +49,10 @@ scrape_configs:
       - targets: ['redis:6379']
     metrics_path: /metrics
 
-  # ClickHouse
-  - job_name: 'clickhouse'
+  # Hanzo Datastore
+  - job_name: 'datastore'
     static_configs:
-      - targets: ['clickhouse:8123']
+      - targets: ['datastore:8123']
     metrics_path: /metrics
 
   # MinIO

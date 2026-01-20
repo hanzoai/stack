@@ -6,11 +6,11 @@ services:
     restart: unless-stopped
     environment:
       - DATABASE_URL=${DATABASE_URL:-postgresql://hanzo:hanzo123@postgres:5432/hanzo}
-      - CLICKHOUSE_HOST=clickhouse
-      - CLICKHOUSE_PORT=8123
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - CLICKHOUSE_DATABASE=${CLICKHOUSE_DATABASE}
+      - HANZO_HOST=datastore
+      - HANZO_PORT=8123
+      - HANZO_USER=${HANZO_USER}
+      - HANZO_PASSWORD=${HANZO_PASSWORD}
+      - HANZO_DATABASE=${HANZO_DATABASE}
       - REDIS_URL=${REDIS_URL:-redis://:hanzo123@redis:6379}
       - NEXTAUTH_URL=http://localhost:3000
       - NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
@@ -25,7 +25,7 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-      clickhouse:
+      datastore:
         condition: service_started
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]

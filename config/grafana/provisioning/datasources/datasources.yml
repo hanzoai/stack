@@ -17,11 +17,11 @@ datasources:
     url: http://loki:3100
     editable: true
 
-  # ClickHouse for analytics data
-  - name: ClickHouse
+  # Hanzo Datastore for analytics data
+  - name: Datastore
     type: grafana-clickhouse-datasource
     access: proxy
-    url: http://clickhouse:8123
+    url: http://datastore:8123
     jsonData:
       defaultDatabase: analytics
       username: hanzo

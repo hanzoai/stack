@@ -3,7 +3,7 @@
 #
 # Services:
 #   1. analytics  - Umami fork - Web analytics (port 3010)
-#   2. datastore  - ClickHouse - Analytics data warehouse (port 8123)
+#   2. datastore  - Hanzo Datastore - Analytics data warehouse (port 8123)
 #   3. base       - PocketBase fork - BaaS with auth & realtime (port 8090)
 #   4. iam        - Casdoor fork - Identity & access management (port 8000)
 #   5. kms        - Infisical fork - Secrets management (port 8070)
@@ -84,10 +84,10 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_analytics
-      CLICKHOUSE_URL: http://datastore:8123
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-hanzo}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-hanzo123}
+      HANZO_URL: http://datastore:8123
+      HANZO_DB: ${HANZO_DB:-analytics}
+      HANZO_USER: ${HANZO_USER:-hanzo}
+      HANZO_PASSWORD: ${HANZO_PASSWORD:-hanzo123}
       NEXTAUTH_URL: ${ANALYTICS_URL:-http://localhost:3010}
       NEXTAUTH_SECRET: ${NEXTAUTH_SECRET:-analytics-secret-change-me}
       APP_SECRET: ${ANALYTICS_SECRET:-analytics-app-secret}
@@ -104,26 +104,26 @@ services:
       - hanzo-network
 
   # =============================================================================
-  # 2. DATASTORE - ClickHouse (Analytics Data Warehouse)
+  # 2. DATASTORE - Hanzo Datastore (Analytics Data Warehouse)
   # =============================================================================
 
   datastore:
-    image: clickhouse/clickhouse-server:24-alpine
+    image: hanzoai/datastore-server:latest
     container_name: hanzo-datastore
     restart: unless-stopped
     environment:
-      CLICKHOUSE_DB: ${CLICKHOUSE_DB:-analytics}
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER:-hanzo}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD:-hanzo123}
-      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: "1"
+      HANZO_DB: ${HANZO_DB:-analytics}
+      HANZO_USER: ${HANZO_USER:-hanzo}
+      HANZO_PASSWORD: ${HANZO_PASSWORD:-hanzo123}
+      HANZO_DEFAULT_ACCESS_MANAGEMENT: "1"
     volumes:
-      - clickhouse_data:/var/lib/clickhouse
-      - clickhouse_logs:/var/log/clickhouse-server
+      - datastore_data:/var/lib/hanzo-datastore
+      - datastore_logs:/var/log/hanzo-datastore-server
     ports:
-      - "${CLICKHOUSE_HTTP_PORT:-8123}:8123"
-      - "${CLICKHOUSE_NATIVE_PORT:-9009}:9000"
+      - "${HANZO_HTTP_PORT:-8123}:8123"
+      - "${HANZO_NATIVE_PORT:-9009}:9000"
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--query", "SELECT 1"]
+      test: ["CMD", "hanzo-datastore-client", "--query", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -262,7 +262,7 @@ services:
       IAM_URL: http://iam:8000
       # Analytics
       ANALYTICS_URL: http://analytics:3000
-      CLICKHOUSE_URL: http://datastore:8123
+      HANZO_URL: http://datastore:8123
     ports:
       - "${COMMERCE_PORT:-8001}:8001"
     depends_on:
@@ -352,10 +352,10 @@ volumes:
     name: hanzo-redis-data
   nats_data:
     name: hanzo-nats-data
-  clickhouse_data:
-    name: hanzo-clickhouse-data
-  clickhouse_logs:
-    name: hanzo-clickhouse-logs
+  datastore_data:
+    name: hanzo-datastore-data
+  datastore_logs:
+    name: hanzo-datastore-logs
   base_data:
     name: hanzo-base-data
   base_migrations:
