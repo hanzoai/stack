@@ -66,6 +66,12 @@ help:
 	@echo "  make core-logs     - View core service logs"
 	@echo "  make core-build    - Build core service images"
 	@echo ""
+	@echo "$(YELLOW)Hanzo Team (Project Management):$(NC)"
+	@echo "  make team-up       - Start Team services"
+	@echo "  make team-down     - Stop Team services"
+	@echo "  make team-status   - Check Team service status"
+	@echo "  make team-logs     - View Team service logs"
+	@echo ""
 	@echo "$(YELLOW)Logs:$(NC)"
 	@echo "  make logs          - View all logs"
 	@echo "  make logs-router   - View router logs"
@@ -276,6 +282,46 @@ core-logs:
 .PHONY: core-logs-%
 core-logs-%:
 	@$(COMPOSE_CORE) --env-file .env.core logs -f $*
+
+# ===== Hanzo Team =====
+COMPOSE_TEAM := docker compose -f compose/apps/team.yml
+
+.PHONY: team-up
+team-up:
+	@echo "$(BLUE)Starting Hanzo Team (Project Management)...$(NC)"
+	@docker network create hanzo-network 2>/dev/null || true
+	@$(COMPOSE_TEAM) up -d
+	@echo ""
+	@make team-status
+
+.PHONY: team-down
+team-down:
+	@echo "$(BLUE)Stopping Hanzo Team...$(NC)"
+	@$(COMPOSE_TEAM) down
+
+.PHONY: team-restart
+team-restart:
+	@echo "$(BLUE)Restarting Hanzo Team...$(NC)"
+	@$(COMPOSE_TEAM) restart
+	@make team-status
+
+.PHONY: team-status
+team-status:
+	@echo "$(BLUE)Hanzo Team Status:$(NC)"
+	@echo ""
+	@$(COMPOSE_TEAM) ps
+	@echo ""
+	@echo "$(GREEN)Service URL:$(NC)"
+	@echo "  Hanzo Team: http://localhost:$${TEAM_PORT:-8087}"
+
+.PHONY: team-logs
+team-logs:
+	@$(COMPOSE_TEAM) logs -f
+
+.PHONY: team-build
+team-build:
+	@echo "$(BLUE)Building Hanzo Team images...$(NC)"
+	@$(COMPOSE_TEAM) build
 
 .PHONY: core-build
 core-build:

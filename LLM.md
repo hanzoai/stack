@@ -9,6 +9,7 @@ The Hanzo Stack provides a unified environment for running the core Hanzo AI ser
 - **Router (LLM Gateway)** - Unified API for 100+ LLM providers with cost tracking
 - **Chat** - AI chat interface with MCP integration and code execution
 - **Cloud** - AI Console, AI Infrastructure management and API usage analytics
+- **Team** - Project management platform (tasks, documents, collaboration)
 - **IAM** - Core Backend Identity and authentication services
 - **Search** - AI-powered search engine frontend
 - **Runtime** - Secure code execution environment
@@ -54,8 +55,8 @@ make status
 | Router | 4000 | LLM Gateway - Routes requests to 100+ providers |
 | Chat | 3081 | Chat UI with code execution and MCP tools |
 | Cloud | 3001 | Dashboard for API tracking and analytics |
+| Team | 8087 | Project management (tasks, docs, collaboration) |
 | App Builder | 3002 | Low-code platform for building AI-powered applications |
-
 | Search | 3000 | AI-powered search engine |
 | Runtime | 3003 | Secure code execution environment |
 | Flow | 3006 | Visual workflow builder |

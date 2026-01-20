@@ -1,0 +1,36 @@
+# Temporal Dynamic Configuration
+# https://docs.temporal.io/references/dynamic-configuration
+
+# Frontend settings
+frontend.enableClientVersionCheck:
+  - value: true
+    constraints: {}
+
+# History settings
+history.defaultActivityRetryPolicy:
+  - value:
+      InitialIntervalInSeconds: 1
+      MaximumIntervalCoefficient: 100.0
+      BackoffCoefficient: 2.0
+      MaximumAttempts: 0
+    constraints: {}
+
+# Worker settings
+worker.enableScheduler:
+  - value: true
+    constraints: {}
+
+# Workflow settings
+limit.maxIDLength:
+  - value: 1000
+    constraints: {}
+
+# System settings
+system.enableEagerWorkflowStart:
+  - value: true
+    constraints: {}
+
+# Archival (disabled by default for local dev)
+system.archivalEnabled:
+  - value: false
+    constraints: {}

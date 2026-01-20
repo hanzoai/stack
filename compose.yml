@@ -202,6 +202,19 @@ services:
     networks:
       - hanzo-network
 
+  # Cron - Temporal Worker for Scheduled Workflows
+  cron:
+    image: ghcr.io/hanzoai/cron:latest
+    container_name: hanzo-cron
+    environment:
+      - TEMPORAL_ADDRESS=tasks:7233
+      - TEMPORAL_NAMESPACE=default
+    depends_on:
+      tasks:
+        condition: service_healthy
+    networks:
+      - hanzo-network
+
   # NATS - High-Performance Message Queue (Apache 2.0)
   pubsub:
     image: nats:2.10-alpine
@@ -220,6 +233,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    networks:
+      - hanzo-network
+
+  # Queues - NATS JetStream Consumer for Work Queues
+  queues:
+    image: ghcr.io/hanzoai/queues:latest
+    container_name: hanzo-queues
+    environment:
+      - NATS_URL=nats://pubsub:4222
+    depends_on:
+      pubsub:
+        condition: service_healthy
     networks:
       - hanzo-network
 

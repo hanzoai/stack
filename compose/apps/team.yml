@@ -1,0 +1,209 @@
+# Hanzo Team - Project Management Platform
+# Based on Huly platform (EPL-2.0)
+# https://github.com/hanzoai/team
+
+services:
+  # Team - Transactor Service
+  team-transactor:
+    image: hanzoai/transactor:${TEAM_VERSION:-v0.7.84}
+    container_name: hanzo-team-transactor
+    environment:
+      - SERVER_PORT=3333
+      - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
+      - SERVER_CURSOR_MAXTIMEMS=30000
+      - DB_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - MONGO_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - STORAGE_CONFIG=minio|minio?accessKey=${MINIO_ROOT_USER:-hanzo}&secretKey=${MINIO_ROOT_PASSWORD:-hanzo123}
+      - FRONT_URL=http://localhost:${TEAM_PORT:-8087}
+      - ACCOUNTS_URL=http://team-account:3000
+      - FULLTEXT_URL=http://team-fulltext:4700
+      - STATS_URL=http://team-stats:4900
+      - LAST_NAME_FIRST=${TEAM_LAST_NAME_FIRST:-false}
+    depends_on:
+      - mongodb
+      - minio
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+  # Team - Account Service
+  team-account:
+    image: hanzoai/account:${TEAM_VERSION:-v0.7.84}
+    container_name: hanzo-team-account
+    environment:
+      - SERVER_PORT=3000
+      - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
+      - DB_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - MONGO_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - TRANSACTOR_URL=ws://team-transactor:3333
+      - STORAGE_CONFIG=minio|minio?accessKey=${MINIO_ROOT_USER:-hanzo}&secretKey=${MINIO_ROOT_PASSWORD:-hanzo123}
+      - FRONT_URL=http://team-front:8080
+      - STATS_URL=http://team-stats:4900
+      - MODEL_ENABLED=*
+      - ACCOUNTS_URL=http://localhost:3000
+      - ACCOUNT_PORT=3000
+    depends_on:
+      - mongodb
+      - team-transactor
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+  # Team - Collaborator Service
+  team-collaborator:
+    image: hanzoai/collaborator:${TEAM_VERSION:-v0.7.84}
+    container_name: hanzo-team-collaborator
+    environment:
+      - COLLABORATOR_PORT=3078
+      - SECRET=${TEAM_SECRET:-team-secret-key}
+      - ACCOUNTS_URL=http://team-account:3000
+      - DB_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - STATS_URL=http://team-stats:4900
+      - STORAGE_CONFIG=minio|minio?accessKey=${MINIO_ROOT_USER:-hanzo}&secretKey=${MINIO_ROOT_PASSWORD:-hanzo123}
+    depends_on:
+      - mongodb
+      - team-account
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+  # Team - Workspace Service
+  team-workspace:
+    image: hanzoai/workspace:${TEAM_VERSION:-v0.7.84}
+    container_name: hanzo-team-workspace
+    environment:
+      - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
+      - DB_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - MONGO_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - TRANSACTOR_URL=ws://team-transactor:3333
+      - STORAGE_CONFIG=minio|minio?accessKey=${MINIO_ROOT_USER:-hanzo}&secretKey=${MINIO_ROOT_PASSWORD:-hanzo123}
+      - MODEL_ENABLED=*
+      - ACCOUNTS_URL=http://team-account:3000
+      - STATS_URL=http://team-stats:4900
+    depends_on:
+      - team-account
+      - team-transactor
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+  # Team - Full-text Search Service
+  team-fulltext:
+    image: hanzoai/fulltext:${TEAM_VERSION:-v0.7.84}
+    container_name: hanzo-team-fulltext
+    environment:
+      - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
+      - DB_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - FULLTEXT_DB_URL=http://team-elastic:9200
+      - ELASTIC_INDEX_NAME=hanzo_team_index
+      - STORAGE_CONFIG=minio|minio?accessKey=${MINIO_ROOT_USER:-hanzo}&secretKey=${MINIO_ROOT_PASSWORD:-hanzo123}
+      - REKONI_URL=http://team-rekoni:4004
+      - ACCOUNTS_URL=http://team-account:3000
+      - STATS_URL=http://team-stats:4900
+    depends_on:
+      - team-elastic
+      - team-account
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+  # Team - Elasticsearch for full-text search
+  team-elastic:
+    image: elasticsearch:7.14.2
+    container_name: hanzo-team-elastic
+    command: |
+      /bin/sh -c "./bin/elasticsearch-plugin list | grep -q ingest-attachment || yes | ./bin/elasticsearch-plugin install --silent ingest-attachment;
+      /usr/local/bin/docker-entrypoint.sh eswrapper"
+    environment:
+      - discovery.type=single-node
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+      - http.cors.enabled=true
+      - http.cors.allow-origin=*
+    volumes:
+      - team_elastic_data:/usr/share/elasticsearch/data
+    healthcheck:
+      interval: 20s
+      retries: 10
+      test: curl -s http://localhost:9200/_cluster/health | grep -vq '"status":"red"'
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+  # Team - Rekoni OCR Service
+  team-rekoni:
+    image: hanzoai/rekoni-service:${TEAM_VERSION:-v0.7.84}
+    container_name: hanzo-team-rekoni
+    environment:
+      - SECRET=${TEAM_SECRET:-team-secret-key}
+    deploy:
+      resources:
+        limits:
+          memory: 500M
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+  # Team - Stats Service
+  team-stats:
+    image: hanzoai/stats:${TEAM_VERSION:-v0.7.84}
+    container_name: hanzo-team-stats
+    environment:
+      - PORT=4900
+      - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+  # Team - Frontend
+  team-front:
+    image: hanzoai/front:${TEAM_VERSION:-v0.7.84}
+    container_name: hanzo-team-front
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
+      - LOVE_ENDPOINT=http://localhost:${TEAM_PORT:-8087}/_love
+      - ACCOUNTS_URL=http://localhost:${TEAM_PORT:-8087}/_accounts
+      - REKONI_URL=http://localhost:${TEAM_PORT:-8087}/_rekoni
+      - STATS_URL=http://localhost:${TEAM_PORT:-8087}/_stats
+      - UPLOAD_URL=/files
+      - ELASTIC_URL=http://team-elastic:9200
+      - COLLABORATOR_URL=ws://localhost:${TEAM_PORT:-8087}/_collaborator
+      - STORAGE_CONFIG=minio|minio?accessKey=${MINIO_ROOT_USER:-hanzo}&secretKey=${MINIO_ROOT_PASSWORD:-hanzo123}
+      - DB_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - MONGO_URL=mongodb://${MONGO_USERNAME:-hanzo}:${MONGO_PASSWORD:-hanzo123}@mongodb:27017/team?authSource=admin
+      - TITLE=Hanzo Team
+      - DEFAULT_LANGUAGE=en
+      - LAST_NAME_FIRST=${TEAM_LAST_NAME_FIRST:-false}
+      - BRANDING_URL=/branding.json
+    depends_on:
+      - team-account
+      - team-transactor
+      - team-collaborator
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+  # Team - Nginx Reverse Proxy
+  team-nginx:
+    image: nginx:1.25-alpine
+    container_name: hanzo-team-nginx
+    ports:
+      - "${TEAM_PORT:-8087}:80"
+    volumes:
+      - ${STACK_DIR:-./}/nginx/team.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - team-front
+      - team-account
+      - team-collaborator
+      - team-rekoni
+      - team-stats
+    networks:
+      - hanzo-network
+    restart: unless-stopped
+
+volumes:
+  team_elastic_data:
+
+networks:
+  hanzo-network:
+    external: true
