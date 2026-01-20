@@ -29,6 +29,21 @@ services:
       - team-network
     restart: unless-stopped
 
+  team-redpanda:
+    image: docker.redpanda.com/redpandadata/redpanda:v24.1.1
+    container_name: hanzo-team-redpanda
+    command:
+      - redpanda start
+      - --smp 1
+      - --overprovisioned
+      - --kafka-addr internal://0.0.0.0:9092,external://0.0.0.0:29092
+      - --advertise-kafka-addr internal://team-redpanda:9092,external://localhost:29092
+    volumes:
+      - team_redpanda_data:/var/lib/redpanda/data
+    networks:
+      - team-network
+    restart: unless-stopped
+
   # Team - Transactor Service
   team-transactor:
     image: hardcoreeng/transactor:${TEAM_VERSION:-v0.7.350}
@@ -45,9 +60,12 @@ services:
       - FULLTEXT_URL=http://team-fulltext:4700
       - STATS_URL=http://team-stats:4900
       - LAST_NAME_FIRST=${TEAM_LAST_NAME_FIRST:-false}
+      - PROCEED_V7_MONGO=true
+      - QUEUE_CONFIG=team-redpanda:9092
     depends_on:
       - team-mongodb
       - team-minio
+      - team-redpanda
     networks:
       - team-network
     restart: unless-stopped
@@ -68,6 +86,7 @@ services:
       - MODEL_ENABLED=*
       - ACCOUNTS_URL=http://localhost:3000
       - ACCOUNT_PORT=3000
+      - PROCEED_V7_MONGO=true
     depends_on:
       - team-mongodb
       - team-transactor
@@ -101,13 +120,17 @@ services:
       - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
       - DB_URL=mongodb://team-mongodb:27017
       - MONGO_URL=mongodb://team-mongodb:27017
+      - ACCOUNTS_DB_URL=mongodb://team-mongodb:27017
       - TRANSACTOR_URL=ws://team-transactor:3333
       - STORAGE_CONFIG=minio|team-minio?accessKey=${MINIO_ROOT_USER:-minioadmin}&secretKey=${MINIO_ROOT_PASSWORD:-minioadmin}
       - MODEL_ENABLED=*
       - ACCOUNTS_URL=http://team-account:3000
       - STATS_URL=http://team-stats:4900
+      - PROCEED_V7_MONGO=true
+      - QUEUE_CONFIG=team-redpanda:9092
     depends_on:
       - team-account
+      - team-redpanda
       - team-transactor
     networks:
       - team-network
@@ -189,7 +212,11 @@ services:
       - SERVER_SECRET=${TEAM_SECRET:-team-secret-key}
       - LOVE_ENDPOINT=http://localhost:${TEAM_PORT:-8087}/_love
       - ACCOUNTS_URL=http://localhost:${TEAM_PORT:-8087}/_accounts
+      - ACCOUNTS_URL_INTERNAL=http://team-account:3000
       - REKONI_URL=http://localhost:${TEAM_PORT:-8087}/_rekoni
+      - GMAIL_URL=
+      - CALENDAR_URL=
+      - TELEGRAM_URL=
       - STATS_URL=http://localhost:${TEAM_PORT:-8087}/_stats
       - UPLOAD_URL=/files
       - ELASTIC_URL=http://team-elastic:9200
@@ -201,6 +228,7 @@ services:
       - DEFAULT_LANGUAGE=en
       - LAST_NAME_FIRST=${TEAM_LAST_NAME_FIRST:-false}
       - BRANDING_URL=/branding.json
+      - PROCEED_V7_MONGO=true
     depends_on:
       - team-account
       - team-transactor
@@ -231,6 +259,7 @@ volumes:
   team_mongodb_data:
   team_minio_data:
   team_elastic_data:
+  team_redpanda_data:
 
 networks:
   team-network:
