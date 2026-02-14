@@ -1,16 +1,120 @@
-# Docker Compose Override for Port Conflict Resolution
-# This file overrides default ports to avoid conflicts with existing services
+# Docker Compose Override for Apple Silicon (ARM64) + Port Conflicts
+# Replaces ghcr.io/hanzoai images that lack ARM64 builds
+# Paths relative to /Users/z/work/hanzo/stack/
 
 services:
   postgres:
     ports:
-      - "5433:5432"  # Map to 5433 to avoid conflict with local PostgreSQL
+      - "5433:5432"  # Avoid conflict with local PostgreSQL
 
   redis:
     ports:
-      - "6380:6379"  # Map to 6380 to avoid conflict with ai-platform-redis
+      - "6381:6379"  # Avoid conflict with kv on 6380
 
-  minio:
+  kv:
     ports:
-      - "9002:9000"  # Map to 9002 to avoid conflict with clickhouse
-      - "9003:9001"  # Map console to 9003
+      - "6382:6379"  # Avoid conflict with redis
+
+  storage:
+    ports:
+      - "9002:9000"  # Avoid conflict with clickhouse
+      - "9003:9001"  # Console
+
+  # Router: use upstream litellm (has ARM64 builds)
+  router:
+    image: ghcr.io/berriai/litellm:main-latest
+
+  # Chat: use upstream LibreChat (has ARM64 builds)
+  chat:
+    image: ghcr.io/danny-avila/librechat:latest
+
+  # Analytics: use upstream umami (has ARM64 builds)
+  analytics:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+
+  # IAM: built from Hanzo fork (hanzoai/iam)
+  iam:
+    image: ghcr.io/hanzoai/iam:latest
+    environment:
+      - driverName=postgres
+      - dataSourceName=user=${POSTGRES_USER:-hanzo} password=${POSTGRES_PASSWORD:-hanzo123} host=postgres port=5432 sslmode=disable dbname=${POSTGRES_DB:-hanzo}_iam
+      - appname=Hanzo IAM
+      - httpport=8000
+      - runmode=dev
+      - redisEndpoint=redis:6379,0,hanzo123
+      - origin=http://localhost:8000
+    volumes:
+      - ../iam/init_data.json:/init_data.json:ro
+      - ../iam/conf/app.conf:/conf/app.conf:ro
+
+  # Console: built from Hanzo fork (hanzoai/console)
+  console:
+    image: ghcr.io/hanzoai/console:latest
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/public/health"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_console
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - NEXT_PUBLIC_APP_URL=http://localhost:3091
+      - PORT=3001
+      - NEXTAUTH_URL=http://localhost:3091
+      - NEXTAUTH_SECRET=hanzo-console-nextauth-secret-dev
+      - SALT=hanzo-console-salt-dev
+      # ClickHouse for analytics data (single-node, no cluster)
+      - CLICKHOUSE_URL=http://datastore:8123
+      - CLICKHOUSE_MIGRATION_URL=clickhouse://datastore:9000
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=hanzo123
+      - CLICKHOUSE_CLUSTER_ENABLED=false
+      # Hanzo IAM as Custom SSO Provider
+      - AUTH_CUSTOM_CLIENT_ID=hanzo-console-client-id
+      - AUTH_CUSTOM_CLIENT_SECRET=3c7c4d9817bf0993681f6da2605e07ba5949da87a32862ed
+      - AUTH_CUSTOM_ISSUER=http://iam:8000
+      - AUTH_CUSTOM_NAME=Hanzo
+      - AUTH_CUSTOM_SCOPE=openid profile email
+      - AUTH_CUSTOM_ALLOW_ACCOUNT_LINKING=true
+      # Enable credentials for local dev
+      - AUTH_DISABLE_SIGNUP=false
+      - AUTH_DISABLE_USERNAME_PASSWORD=false
+      # S3 Event Upload (MinIO) - required for Langfuse v3.148.0+
+      - LANGFUSE_S3_EVENT_UPLOAD_BUCKET=langfuse-events
+      - LANGFUSE_S3_EVENT_UPLOAD_ENDPOINT=http://storage:9000
+      - LANGFUSE_S3_EVENT_UPLOAD_ACCESS_KEY_ID=minioadmin
+      - LANGFUSE_S3_EVENT_UPLOAD_SECRET_ACCESS_KEY=minioadmin
+      - LANGFUSE_S3_EVENT_UPLOAD_FORCE_PATH_STYLE=true
+
+  # Platform: built from Hanzo fork (hanzoai/platform)
+  platform:
+    image: ghcr.io/hanzoai/platform:latest
+    ports:
+      - "3002:3000"  # Only expose dashboard, skip 80/443 in dev
+    environment:
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_platform
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
+      - SECRET_KEY=${PLATFORM_SECRET_KEY:-hanzo-platform-secret-key-dev}
+      - NODE_ENV=production
+      - DOMAIN=hanzo.local
+      # Hanzo IAM integration
+      - HANZO_IAM_URL=http://iam:8000
+      - HANZO_IAM_CLIENT_ID=hanzo-platform-client-id
+      - HANZO_IAM_CLIENT_SECRET=a4b5c6d7e8f90123456789abcdef0123456789abcdef01
+
+  # KMS: use upstream infisical (has ARM64 builds)
+  kms:
+    image: infisical/infisical:latest
+
+  # Datastore: use upstream clickhouse (has ARM64 builds)
+  datastore:
+    image: clickhouse/clickhouse-server:latest
+    environment:
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=hanzo123
+    healthcheck:
+      test: ["CMD", "clickhouse-client", "--password", "hanzo123", "--query", "SELECT 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5

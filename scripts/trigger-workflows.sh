@@ -40,7 +40,7 @@ gh workflow run "Build and Push Search" --repo "hanzoai/search" 2>/dev/null && e
 gh workflow run "Build and Push Cloud" --repo "hanzoai/cloud" 2>/dev/null && echo "✅ Cloud triggered" || echo "❌ Cloud failed"
 
 # IAM
-gh workflow run "Build and Push IAM" --repo "hanzo-io/iam" 2>/dev/null && echo "✅ IAM triggered" || echo "❌ IAM failed"
+gh workflow run "Build and Push IAM" --repo "hanzo.ai/iam" 2>/dev/null && echo "✅ IAM triggered" || echo "❌ IAM failed"
 
 echo ""
 echo "✅ Workflow triggers complete!"

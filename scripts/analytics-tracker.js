@@ -52,7 +52,7 @@
     
     // Additional tracking configuration
     script.dataset.doNotTrack = 'false';
-    script.dataset.domains = 'hanzo.ai,hanzo.io,localhost';
+    script.dataset.domains = 'hanzo.ai,hanzo.ai,localhost';
     
     document.head.appendChild(script);
   }
