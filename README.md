@@ -42,7 +42,7 @@ make up
 | MinIO | 9000/9001 | 9000/9001 | S3-compatible storage |
 | Meilisearch | 7700 | 7700 | Search engine |
 | Router | 4000 | 4000 | LLM Gateway |
-| Chat | 3081 | 3081 | LibreChat fork with MCP support |
+| Chat | 3081 | 3081 | AI Chat with MCP support |
 | IDE | 3002 | 3002 | OpenHands AI development assistant |
 | Analytics | 3090 | 3090 | Privacy-focused analytics platform |
 | Runtime | 8002 | 8002 | Code execution sandbox |
