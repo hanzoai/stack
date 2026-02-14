@@ -34,9 +34,6 @@
 [submodule "build"]
 	path = build
 	url = ../build
-[submodule "python-sdk"]
-	path = python-sdk
-	url = git@github.com:hanzoai/python-sdk.git
 [submodule "js-sdk"]
 	path = js-sdk
 	url = git@github.com:hanzoai/js-sdk.git
