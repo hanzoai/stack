@@ -1,0 +1,154 @@
+# AdNexus Advertising Stack - Compose Overlay for Hanzo Stack
+# Usage: docker compose -f compose.yml -f compose.adnexus.yml up -d
+#
+# Deploys the complete AdNexus programmatic advertising platform:
+#   - ADX (Ad Exchange) - Routes bid requests between SSP and DSP
+#   - DSP (Demand Side Platform) - Manages campaigns and bidding
+#   - SSP (Supply Side Platform) - Manages publisher inventory
+#   - DSP UI (Campaign Management Dashboard)
+#   - SSP UI (Publisher Management Dashboard)
+
+services:
+  # =============================================================================
+  # ADNEXUS CORE SERVICES
+  # =============================================================================
+
+  adx:
+    image: ghcr.io/adnexustech/adx:${ADNEXUS_TAG:-latest}
+    container_name: adnexus-adx
+    environment:
+      - PORT=8080
+      - DSP_URL=http://dsp:8081/openrtb2/bid
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379/1
+      - BRAND_NAME=${ADNEXUS_BRAND_NAME:-AdNexus}
+      - BRAND_DOMAIN=${ADNEXUS_BRAND_DOMAIN:-ad.nexus}
+      - BRAND_NAMESPACE=${ADNEXUS_BRAND_NAMESPACE:-adnexus}
+      - ZAP_ENABLED=${ZAP_ENABLED:-true}
+      - ZAP_PORT=9651
+    ports:
+      - "${ADX_PORT:-8080}:8080"
+      - "${ADX_ZAP_PORT:-9651}:9651"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - hanzo-network
+
+  dsp:
+    image: ghcr.io/adnexustech/dsp:${ADNEXUS_TAG:-latest}
+    container_name: adnexus-dsp
+    environment:
+      - PORT=8081
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${ADNEXUS_DB:-adnexus}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379/2
+      - WIN_URL=http://adx:8080/win
+      - PIXEL_URL=http://adx:8080/pixel
+      - BRAND_NAME=${ADNEXUS_BRAND_NAME:-AdNexus}
+      - BRAND_DOMAIN=${ADNEXUS_BRAND_DOMAIN:-ad.nexus}
+      - BRAND_NAMESPACE=${ADNEXUS_BRAND_NAMESPACE:-adnexus}
+      - AUTH_ENABLED=${AUTH_ENABLED:-false}
+      - AUTH_IAM_DOMAIN=${AUTH_IAM_DOMAIN:-id.ad.nexus}
+      - ZAP_ENABLED=${ZAP_ENABLED:-true}
+      - ZAP_PORT=9652
+    ports:
+      - "${DSP_PORT:-8081}:8081"
+      - "${DSP_ZAP_PORT:-9652}:9652"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - hanzo-network
+
+  ssp:
+    image: ghcr.io/adnexustech/ssp:${ADNEXUS_TAG:-latest}
+    container_name: adnexus-ssp
+    environment:
+      - PORT=8082
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${ADNEXUS_DB:-adnexus}
+      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379/3
+      - ADX_URL=http://adx:8080/openrtb2/auction
+      - BRAND_NAME=${ADNEXUS_BRAND_NAME:-AdNexus}
+      - BRAND_DOMAIN=${ADNEXUS_BRAND_DOMAIN:-ad.nexus}
+      - BRAND_NAMESPACE=${ADNEXUS_BRAND_NAMESPACE:-adnexus}
+      - AUTH_ENABLED=${AUTH_ENABLED:-false}
+      - AUTH_IAM_DOMAIN=${AUTH_IAM_DOMAIN:-id.ad.nexus}
+      - ZAP_ENABLED=${ZAP_ENABLED:-true}
+      - ZAP_PORT=9653
+    ports:
+      - "${SSP_PORT:-8082}:8082"
+      - "${SSP_ZAP_PORT:-9653}:9653"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8082/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - hanzo-network
+
+  # =============================================================================
+  # ADNEXUS UI SERVICES
+  # =============================================================================
+
+  dsp-ui:
+    image: ghcr.io/adnexustech/dsp-ui:${ADNEXUS_UI_TAG:-latest}
+    container_name: adnexus-dsp-ui
+    environment:
+      - RAILS_ENV=production
+      - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${ADNEXUS_DB:-adnexus}_dsp_ui
+      - DSP_API_URL=http://dsp:8081
+      - AUTH_ENABLED=${AUTH_ENABLED:-false}
+      - AUTH_IAM_DOMAIN=${AUTH_IAM_DOMAIN:-id.ad.nexus}
+      - AUTH_CLIENT_ID=${ADNEXUS_AUTH_CLIENT_ID:-}
+      - AUTH_CLIENT_SECRET=${ADNEXUS_AUTH_CLIENT_SECRET:-}
+      - AUTH_JWT_SECRET=${ADNEXUS_AUTH_JWT_SECRET:-}
+      - SECRET_KEY_BASE=${ADNEXUS_SECRET_KEY_BASE:-replace-in-production}
+    ports:
+      - "${DSP_UI_PORT:-3083}:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      dsp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/up"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - hanzo-network
+
+  ssp-ui:
+    image: ghcr.io/adnexustech/ssp-ui:${ADNEXUS_UI_TAG:-latest}
+    container_name: adnexus-ssp-ui
+    environment:
+      - SSP_API_URL=http://ssp:8082
+      - AUTH_ENABLED=${AUTH_ENABLED:-false}
+    ports:
+      - "${SSP_UI_PORT:-3084}:3000"
+    depends_on:
+      ssp:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+    networks:
+      - hanzo-network
