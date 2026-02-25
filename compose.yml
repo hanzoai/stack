@@ -537,11 +537,11 @@ services:
       - AZURE_API_BASE=${AZURE_API_BASE}
       - AZURE_API_VERSION=${AZURE_API_VERSION}
       # Router Configuration
-      - LITELLM_MODE=PRODUCTION
+      - LLM_MODE=PRODUCTION
       - DATABASE_SCHEMA_NAME=hanzo_router
       - STORE_MODEL_IN_DB=true
-      - LITELLM_DROP_PARAMS=true
-      - LITELLM_LOCAL_MODEL_COST_MAP=true
+      - LLM_DROP_PARAMS=true
+      - LLM_LOCAL_MODEL_COST_MAP=true
       - SET_VERBOSE=true
       - ACTIONS_SEED_ENABLED=true
       - UI_USERNAME=${ROUTER_UI_USERNAME:-admin}

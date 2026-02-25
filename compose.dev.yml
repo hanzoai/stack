@@ -145,9 +145,9 @@ services:
       - LOG_LEVEL=DEBUG
     volumes:
       - services/chat:/app:rw
-      - ./config/litellm-config.yaml:/app/config.yaml:ro
+      - ./config/llm-config.yaml:/app/config.yaml:ro
       - ./logs/chat:/app/logs:rw
-    command: ["python", "-m", "litellm", "--config", "/app/config.yaml", "--port", "4000", "--detailed_debug"]
+    command: ["python", "-m", "llm", "--config", "/app/config.yaml", "--port", "4000", "--detailed_debug"]
     ports:
       - "${CHAT_PORT:-3081}:4000"
     depends_on:
