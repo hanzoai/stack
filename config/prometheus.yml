@@ -14,7 +14,7 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  # Hanzo Router (LiteLLM)
+  # Hanzo Router (Hanzo LLM)
   - job_name: 'router'
     static_configs:
       - targets: ['router:4000']

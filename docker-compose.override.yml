@@ -20,9 +20,9 @@ services:
       - "9002:9000"  # Avoid conflict with clickhouse
       - "9003:9001"  # Console
 
-  # Router: use upstream litellm (has ARM64 builds)
+  # Router: use Hanzo LLM image (has ARM64 builds)
   router:
-    image: ghcr.io/berriai/litellm:main-latest
+    image: ghcr.io/hanzoai/llm:latest
 
   # Chat: use upstream LibreChat (has ARM64 builds)
   chat:

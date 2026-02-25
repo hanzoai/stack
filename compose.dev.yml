@@ -134,8 +134,8 @@ services:
     container_name: hanzo-chat
     environment:
       - NODE_ENV=development
-      - LITELLM_MODE=DEVELOPMENT
-      - LITELLM_MASTER_KEY=${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
+      - LLM_MODE=DEVELOPMENT
+      - LLM_MASTER_KEY=${ROUTER_MASTER_KEY:-sk-router-master-hanzo}
       - UI_USERNAME=${ROUTER_UI_USERNAME:-admin}
       - UI_PASSWORD=${ROUTER_UI_PASSWORD:-admin}
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}
