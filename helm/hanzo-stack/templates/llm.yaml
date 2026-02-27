@@ -1,0 +1,90 @@
+{{- if .Values.llm.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: llm-gateway
+  labels:
+    {{- include "hanzo-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: llm
+spec:
+  replicas: {{ .Values.llm.replicaCount | default 2 }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  selector:
+    matchLabels:
+      app: llm-gateway
+  template:
+    metadata:
+      labels:
+        app: llm-gateway
+        app.kubernetes.io/component: llm
+    spec:
+      containers:
+        - name: llm
+          image: "{{ .Values.llm.image.repository }}:{{ .Values.llm.image.tag }}"
+          imagePullPolicy: {{ .Values.llm.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.llm.service.port }}
+          env:
+            - name: HANZO_MASTER_KEY
+              value: {{ .Values.llm.env.masterKey | quote }}
+            {{- if .Values.llm.env.openaiApiKey }}
+            - name: OPENAI_API_KEY
+              value: {{ .Values.llm.env.openaiApiKey | quote }}
+            {{- end }}
+            {{- if .Values.llm.env.anthropicApiKey }}
+            - name: ANTHROPIC_API_KEY
+              value: {{ .Values.llm.env.anthropicApiKey | quote }}
+            {{- end }}
+            {{- if .Values.llm.env.togetherApiKey }}
+            - name: TOGETHERAI_API_KEY
+              value: {{ .Values.llm.env.togetherApiKey | quote }}
+            {{- end }}
+            {{- if .Values.llm.env.googleApiKey }}
+            - name: GEMINI_API_KEY
+              value: {{ .Values.llm.env.googleApiKey | quote }}
+            {{- end }}
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 15
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          resources:
+            {{- toYaml .Values.llm.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: llm-gateway
+  labels:
+    {{- include "hanzo-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: llm
+spec:
+  type: {{ .Values.llm.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ .Values.llm.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: llm-gateway
+{{- end }}

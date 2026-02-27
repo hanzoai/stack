@@ -1,8 +1,11 @@
 apiVersion: v2
 name: hanzo-stack
-description: Complete Hanzo AI Infrastructure Stack
+description: |
+  Complete Hanzo AI Infrastructure Stack.
+  Deploy the full Hanzo platform on any Kubernetes cluster with a single chart.
+  Includes IAM, KMS, LLM gateway, chat, cloud API, console, and all dependencies.
 type: application
-version: 0.1.0
+version: 0.2.0
 appVersion: "1.0"
 keywords:
   - hanzo
@@ -10,12 +13,15 @@ keywords:
   - llm
   - chat
   - infrastructure
+  - iam
+  - kms
+  - gateway
 home: https://hanzo.ai
 sources:
   - https://github.com/hanzoai/hanzo
 maintainers:
-  - name: Hanzo AI Team
-    email: team@hanzo.ai
+  - name: Hanzo AI
+    email: dev@hanzo.ai
 dependencies:
   - name: postgresql
     version: "13.2.24"
@@ -29,7 +35,3 @@ dependencies:
     version: "14.6.1"
     repository: "https://charts.bitnami.com/bitnami"
     condition: mongodb.enabled
-  - name: minio
-    version: "12.10.0"
-    repository: "https://charts.bitnami.com/bitnami"
-    condition: minio.enabled

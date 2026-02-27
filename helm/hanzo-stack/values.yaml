@@ -1,16 +1,28 @@
-# Default values for hanzo-stack.
-# This is a YAML-formatted file.
+# Hanzo Stack — deploy on any Kubernetes cluster
+# Usage:
+#   helm dependency build
+#   helm install hanzo . -n hanzo --create-namespace
+#
+# For production:
+#   helm install hanzo . -n hanzo --create-namespace \
+#     --set global.domain=yourdomain.com \
+#     --set postgresql.auth.password=STRONG_PASSWORD \
+#     --set redis.auth.password=STRONG_PASSWORD \
+#     --set mongodb.auth.rootPassword=STRONG_PASSWORD \
+#     --set llm.env.masterKey=sk-YOUR-MASTER-KEY
 
 global:
-  storageClass: "" # Use default storage class
+  storageClass: ""  # Uses cluster default
   domain: "hanzo.local"
+  imageRegistry: ghcr.io/hanzoai
 
-# Infrastructure Services
+# ─── Infrastructure ───────────────────────────────────────────────────────────
+
 postgresql:
   enabled: true
   auth:
     username: hanzo
-    password: changeme-strong-password
+    password: ""  # REQUIRED: set via --set
     database: hanzo
   primary:
     persistence:
@@ -21,7 +33,7 @@ redis:
   enabled: true
   auth:
     enabled: true
-    password: changeme-strong-password
+    password: ""  # REQUIRED: set via --set
   master:
     persistence:
       enabled: true
@@ -31,131 +43,198 @@ mongodb:
   enabled: true
   auth:
     enabled: true
-    rootPassword: changeme-strong-password
+    rootPassword: ""  # REQUIRED: set via --set
     username: hanzo
-    password: changeme-strong-password
+    password: ""  # REQUIRED: set via --set
     database: hanzo
   persistence:
     enabled: true
     size: 10Gi
 
-minio:
-  enabled: true
-  auth:
-    rootUser: minioadmin
-    rootPassword: changeme-strong-password
-  persistence:
-    enabled: true
-    size: 20Gi
+# ─── Core Services ────────────────────────────────────────────────────────────
 
-meilisearch:
+iam:
   enabled: true
+  replicaCount: 2
   image:
-    repository: getmeili/meilisearch
+    repository: ghcr.io/hanzoai/iam
     tag: latest
-  masterKey: changeme-strong-password
-  persistence:
-    enabled: true
-    size: 5Gi
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
 
-# Hanzo Services
+kms:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/hanzoai/kms
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8080
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  env:
+    siteUrl: ""  # Set to https://kms.yourdomain.com
+    inviteOnlySignup: "true"
+    telemetryEnabled: "false"
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 2Gi
+
+# ─── AI Services ──────────────────────────────────────────────────────────────
+
 llm:
   enabled: true
   image:
     repository: ghcr.io/hanzoai/llm
     tag: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     type: ClusterIP
     port: 4000
   env:
-    masterKey: sk-router-changeme-strong-key
-    # Add your LLM provider keys here
+    masterKey: ""  # REQUIRED: set via --set
+    # Provider API keys — set at least one
     openaiApiKey: ""
     anthropicApiKey: ""
     togetherApiKey: ""
     googleApiKey: ""
   resources:
     requests:
-      memory: "512Mi"
-      cpu: "250m"
+      memory: 512Mi
+      cpu: 250m
     limits:
-      memory: "2Gi"
-      cpu: "1000m"
+      memory: 2Gi
+      cpu: 1000m
+
+cloud:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/hanzoai/cloud
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 8000
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 2000m
+      memory: 4Gi
 
 chat:
   enabled: true
   image:
     repository: ghcr.io/hanzoai/chat
     tag: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     type: ClusterIP
     port: 3081
-  ingress:
-    enabled: true
-    className: nginx
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
-    hosts:
-      - host: chat.hanzo.local
-        paths:
-          - path: /
-            pathType: Prefix
-    tls:
-      - secretName: chat-tls
-        hosts:
-          - chat.hanzo.local
   env:
     nodeEnv: production
     brandMode: "true"
     brandName: "Hanzo AI"
     appTitle: "Hanzo AI Chat"
-    brandColor: "#000000"
     defaultTheme: "dark"
-    # Auth
-    nextauthSecret: changeme-random-secret-string
-    clerkSecretKey: ""
   resources:
     requests:
-      memory: "512Mi"
-      cpu: "250m"
+      memory: 512Mi
+      cpu: 250m
     limits:
-      memory: "2Gi"
-      cpu: "1000m"
+      memory: 2Gi
+      cpu: 1000m
+
+console:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/hanzoai/console-web
+    tag: latest
+    pullPolicy: Always
+  service:
+    type: ClusterIP
+    port: 3000
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+# ─── Optional Services ────────────────────────────────────────────────────────
 
 search:
   enabled: false
   image:
     repository: ghcr.io/hanzoai/search
     tag: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     type: ClusterIP
     port: 3000
-  ingress:
-    enabled: true
-    className: nginx
-    hosts:
-      - host: search.hanzo.local
-        paths:
-          - path: /
-            pathType: Prefix
 
-api:
+commerce:
   enabled: false
+  replicaCount: 2
   image:
-    repository: ghcr.io/hanzoai/api
+    repository: ghcr.io/hanzoai/commerce
     tag: latest
-    pullPolicy: IfNotPresent
+    pullPolicy: Always
   service:
     type: ClusterIP
     port: 8000
-  ingress:
+
+analytics:
+  enabled: false
+  replicaCount: 2
+  image:
+    repository: ghcr.io/hanzoai/analytics
+    tag: latest
+    pullPolicy: Always
+
+# ─── Ingress ──────────────────────────────────────────────────────────────────
+
+ingress:
+  enabled: true
+  className: ""  # Set to your ingress class (e.g., nginx, traefik, hanzo)
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+  tls:
     enabled: true
-    className: nginx
-    hosts:
-      - host: api.hanzo.local
-        paths:
-          - path: /
-            pathType: Prefix

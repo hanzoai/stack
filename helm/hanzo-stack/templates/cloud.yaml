@@ -1,0 +1,82 @@
+{{- if .Values.cloud.enabled }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cloud-api
+  labels:
+    {{- include "hanzo-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cloud
+spec:
+  replicas: {{ .Values.cloud.replicaCount | default 2 }}
+  strategy:
+    {{- toYaml (.Values.cloud.strategy | default (dict "type" "RollingUpdate" "rollingUpdate" (dict "maxSurge" 1 "maxUnavailable" 0))) | nindent 4 }}
+  selector:
+    matchLabels:
+      app: cloud-api
+  template:
+    metadata:
+      labels:
+        app: cloud-api
+        app.kubernetes.io/component: cloud
+    spec:
+      containers:
+        - name: cloud-api
+          image: "{{ .Values.cloud.image.repository }}:{{ .Values.cloud.image.tag }}"
+          imagePullPolicy: {{ .Values.cloud.image.pullPolicy }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.cloud.service.port }}
+          startupProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 10
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            periodSeconds: 5
+            failureThreshold: 3
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+          resources:
+            {{- toYaml .Values.cloud.resources | nindent 12 }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cloud-api
+  labels:
+    {{- include "hanzo-stack.labels" . | nindent 4 }}
+    app.kubernetes.io/component: cloud
+spec:
+  type: {{ .Values.cloud.service.type | default "ClusterIP" }}
+  ports:
+    - port: {{ .Values.cloud.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app: cloud-api
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: cloud-pdb
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: cloud-api
+{{- end }}
