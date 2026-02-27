@@ -47,6 +47,43 @@ spec:
               value: {{ .Values.kms.env.inviteOnlySignup | default "true" | quote }}
             - name: TELEMETRY_ENABLED
               value: {{ .Values.kms.env.telemetryEnabled | default "false" | quote }}
+            {{- if .Values.kms.env.casdoorEndpoint }}
+            - name: CASDOOR_ENDPOINT
+              value: {{ .Values.kms.env.casdoorEndpoint | quote }}
+            - name: CASDOOR_CLIENT_ID
+              value: {{ .Values.kms.env.casdoorClientId | default "kms-client" | quote }}
+            - name: CASDOOR_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kms.env.casdoorSecretRef | default "kms-casdoor-credentials" }}
+                  key: clientSecret
+            - name: CASDOOR_ORGANIZATION
+              value: {{ .Values.kms.env.casdoorOrganization | default "hanzo" | quote }}
+            - name: CASDOOR_APPLICATION
+              value: {{ .Values.kms.env.casdoorApplication | default "app-kms" | quote }}
+            {{- end }}
+            {{- if .Values.kms.secretsRef }}
+            - name: ROOT_ENCRYPTION_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kms.secretsRef }}
+                  key: ROOT_ENCRYPTION_KEY
+            - name: AUTH_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kms.secretsRef }}
+                  key: AUTH_SECRET
+            - name: DB_CONNECTION_URI
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kms.secretsRef }}
+                  key: DB_CONNECTION_URI
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Values.kms.secretsRef }}
+                  key: REDIS_URL
+            {{- end }}
           startupProbe:
             httpGet:
               path: /api/status
