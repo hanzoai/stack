@@ -29,7 +29,7 @@ jobs:
           --health-retries 5
 
       redis:
-        image: redis:7-alpine
+        image: ghcr.io/hanzoai/kv:latest
         ports:
           - 6379:6379
         options: >-

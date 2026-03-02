@@ -3,7 +3,7 @@
 services:
   # Core Infrastructure
   postgres:
-    image: postgres:16-alpine
+    image: ghcr.io/hanzoai/sql:17-alpine
     container_name: hanzo-postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-hanzo}
@@ -22,7 +22,7 @@ services:
       - hanzo-network
 
   redis:
-    image: redis:7-alpine
+    image: ghcr.io/hanzoai/kv:latest
     container_name: hanzo-redis
     command: redis-server --requirepass ${REDIS_PASSWORD:-hanzo123}
     volumes:
@@ -37,22 +37,34 @@ services:
     networks:
       - hanzo-network
 
-  mongodb:
-    image: mongo:7
-    container_name: hanzo-mongodb
+  # DocDB - MongoDB wire protocol via FerretDB + PostgreSQL backend
+  docdb-pg:
+    image: ghcr.io/hanzoai/sql:17-alpine
+    container_name: hanzo-docdb-pg
     environment:
-      - MONGO_INITDB_ROOT_USERNAME=${MONGO_ROOT_USERNAME:-hanzo}
-      - MONGO_INITDB_ROOT_PASSWORD=${MONGO_ROOT_PASSWORD:-hanzo123}
-      - MONGO_INITDB_DATABASE=${MONGO_INITDB_DATABASE:-hanzo}
+      - POSTGRES_USER=${MONGO_ROOT_USERNAME:-hanzo}
+      - POSTGRES_PASSWORD=${MONGO_ROOT_PASSWORD:-hanzo123}
+      - POSTGRES_DB=${MONGO_INITDB_DATABASE:-hanzo}
     volumes:
-      - mongodb_data:/data/db
-    ports:
-      - "${MONGODB_PORT:-27017}:27017"
+      - docdb_pg_data:/var/lib/postgresql/data
     healthcheck:
-      test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+      test: ["CMD-SHELL", "pg_isready -U ${MONGO_ROOT_USERNAME:-hanzo}"]
       interval: 5s
       timeout: 5s
       retries: 5
+    networks:
+      - hanzo-network
+
+  docdb:
+    image: ghcr.io/hanzoai/docdb:latest
+    container_name: hanzo-docdb
+    environment:
+      - FERRETDB_POSTGRESQL_URL=postgres://${MONGO_ROOT_USERNAME:-hanzo}:${MONGO_ROOT_PASSWORD:-hanzo123}@docdb-pg:5432/${MONGO_INITDB_DATABASE:-hanzo}
+    ports:
+      - "${MONGODB_PORT:-27017}:27017"
+    depends_on:
+      docdb-pg:
+        condition: service_healthy
     networks:
       - hanzo-network
 

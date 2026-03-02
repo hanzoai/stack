@@ -240,7 +240,7 @@ analytics:
 
 ingress:
   enabled: true
-  className: ""  # Set to your ingress class (e.g., nginx, traefik, hanzo)
+  className: ""  # Set to your ingress class (e.g., ingress, nginx, traefik)
   annotations:
     cert-manager.io/cluster-issuer: letsencrypt-prod
   tls:
