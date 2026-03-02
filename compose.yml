@@ -7,7 +7,7 @@ services:
   # =============================================================================
 
   postgres:
-    image: ghcr.io/hanzoai/sql:17-alpine
+    image: ghcr.io/hanzoai/sql:latest
     container_name: hanzo-postgres
     environment:
       - POSTGRES_USER=${POSTGRES_USER:-hanzo}
@@ -43,7 +43,7 @@ services:
 
   # DocDB - MongoDB wire protocol via FerretDB + PostgreSQL backend
   docdb-pg:
-    image: ghcr.io/hanzoai/sql:17-alpine
+    image: ghcr.io/hanzoai/sql:latest
     container_name: hanzo-docdb-pg
     environment:
       - POSTGRES_USER=${MONGO_USERNAME:-hanzo}
