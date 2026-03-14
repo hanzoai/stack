@@ -393,9 +393,9 @@ services:
     networks:
       - hanzo-network
 
-  # Insights - Product analytics (PostHog-compatible)
+  # Insights - Product analytics (Hanzo Insights)
   insights:
-    image: posthog/posthog:latest
+    image: ghcr.io/hanzoai/insights:latest
     container_name: hanzo-insights
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_insights
