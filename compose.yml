@@ -393,15 +393,15 @@ services:
     networks:
       - hanzo-network
 
-  # PostHog - Product analytics and insights
+  # Insights - Product analytics (PostHog-compatible)
   insights:
     image: posthog/posthog:latest
     container_name: hanzo-insights
     environment:
-      - DATABASE_URL=postgres://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_posthog
+      - DATABASE_URL=postgres://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_insights
       - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-      - SECRET_KEY=${POSTHOG_SECRET:-hanzo-posthog-secret-key-change-me}
-      - SITE_URL=http://localhost:${POSTHOG_PORT:-8010}
+      - SECRET_KEY=${INSIGHTS_SECRET:-hanzo-insights-secret-key-change-me}
+      - SITE_URL=http://localhost:${INSIGHTS_PORT:-8010}
       - DISABLE_SECURE_SSL_REDIRECT=true
       - IS_BEHIND_PROXY=false
       - CLICKHOUSE_HOST=datastore
@@ -409,7 +409,7 @@ services:
       - CLICKHOUSE_USER=${DATASTORE_USER:-hanzo}
       - CLICKHOUSE_PASSWORD=${DATASTORE_PASSWORD:-hanzo123}
     ports:
-      - "${POSTHOG_PORT:-8010}:8000"
+      - "${INSIGHTS_PORT:-8010}:8000"
     depends_on:
       postgres:
         condition: service_healthy
