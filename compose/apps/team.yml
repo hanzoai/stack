@@ -239,7 +239,7 @@ services:
 
   # Team - Nginx Reverse Proxy
   team-nginx:
-    image: nginx:1.25-alpine
+    image: ghcr.io/hanzoai/static:latest
     container_name: hanzo-team-nginx
     ports:
       - "${TEAM_PORT:-8087}:80"
