@@ -1,7 +1,7 @@
 
 services:
   llm-gateway:
-    image: ghcr.io/hanzoai/llm:latest
+    image: ghcr.io/hanzoai/llm:v1.81.15
     container_name: hanzo-llm-gateway
     restart: unless-stopped
     environment:

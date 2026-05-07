@@ -22,7 +22,7 @@ services:
 
   # Router: use Hanzo LLM image (has ARM64 builds)
   router:
-    image: ghcr.io/hanzoai/llm:latest
+    image: ghcr.io/hanzoai/llm:v1.81.15
 
   # Chat: use upstream LibreChat (has ARM64 builds)
   chat:
@@ -34,7 +34,7 @@ services:
 
   # IAM: built from Hanzo fork (hanzoai/iam)
   iam:
-    image: ghcr.io/hanzoai/iam:latest
+    image: ghcr.io/hanzoai/iam:1.1000.1
     environment:
       - driverName=postgres
       - dataSourceName=user=${POSTGRES_USER:-hanzo} password=${POSTGRES_PASSWORD:-hanzo123} host=postgres port=5432 sslmode=disable dbname=${POSTGRES_DB:-hanzo}_iam
@@ -49,7 +49,7 @@ services:
 
   # Console: built from Hanzo fork (hanzoai/console)
   console:
-    image: ghcr.io/hanzoai/console:latest
+    image: ghcr.io/hanzoai/console:3.156.7
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3001/api/public/health"]
       interval: 30s

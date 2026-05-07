@@ -11,13 +11,13 @@ services:
 
   analytics:
     platform: linux/amd64
-    image: ghcr.io/hanzoai/analytics:latest
+    image: ghcr.io/hanzoai/analytics:3.0.4
     environment:
       - PLATFORM=amd64
 
   iam:
     platform: linux/amd64
-    image: ghcr.io/hanzoai/iam:latest
+    image: ghcr.io/hanzoai/iam:1.1000.1
     environment:
       - PLATFORM=amd64
 

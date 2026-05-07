@@ -395,7 +395,7 @@ services:
 
   # Insights - Product analytics (Hanzo Insights)
   insights:
-    image: ghcr.io/hanzoai/insights:latest
+    image: ghcr.io/hanzoai/insights:1.51.1
     container_name: hanzo-insights
     environment:
       - DATABASE_URL=postgres://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_insights
@@ -454,7 +454,7 @@ services:
 
   # KMS - Infisical Fork - Secrets Management (MIT)
   kms:
-    image: ghcr.io/hanzoai/kms:latest
+    image: ghcr.io/hanzoai/kms:1.0.6
     build:
       context: ../kms
       dockerfile: Dockerfile.standalone-infisical
@@ -622,7 +622,7 @@ services:
       - hanzo-network
 
   analytics:
-    image: ghcr.io/hanzoai/analytics:latest
+    image: ghcr.io/hanzoai/analytics:3.0.4
     container_name: hanzo-analytics
     ports:
       - "${ANALYTICS_PORT:-3010}:3000"
@@ -688,7 +688,7 @@ services:
       - hanzo-network
 
   iam:
-    image: ghcr.io/hanzoai/iam:latest
+    image: ghcr.io/hanzoai/iam:1.1000.1
     container_name: hanzo-iam
     ports:
       - "${IAM_PORT:-8000}:8000"
@@ -738,7 +738,7 @@ services:
 
   # Search App - AI-Powered Search Engine (MIT - Morphic fork)
   search-app:
-    image: ghcr.io/hanzoai/search:latest
+    image: ghcr.io/hanzoai/search:1.37.0
     build:
       context: ../../search
       dockerfile: Dockerfile
@@ -763,7 +763,7 @@ services:
 
   # Console - Cloud Dashboard & Admin UI
   console:
-    image: ghcr.io/hanzoai/console:latest
+    image: ghcr.io/hanzoai/console:3.156.7
     build:
       context: ../../console
       dockerfile: Dockerfile
@@ -799,7 +799,7 @@ services:
 
   # Gateway - API Gateway & Proxy (MIT)
   gateway:
-    image: ghcr.io/hanzoai/gateway:latest
+    image: ghcr.io/hanzoai/gateway:2.14.1
     build:
       context: ../../gateway
       dockerfile: Dockerfile
@@ -855,7 +855,7 @@ services:
 
   # Cloud - API Backend & Knowledge Base (Apache 2.0 - Casibase fork)
   cloud:
-    image: ghcr.io/hanzoai/cloud:latest
+    image: ghcr.io/hanzoai/cloud:1.783.1
     build:
       context: ../../cloud
       dockerfile: Dockerfile

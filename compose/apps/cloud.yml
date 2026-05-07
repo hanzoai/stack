@@ -1,7 +1,7 @@
 
 services:
   cloud:
-    image: ghcr.io/hanzoai/cloud:latest
+    image: ghcr.io/hanzoai/cloud:1.783.1
     container_name: hanzo-cloud
     restart: unless-stopped
     environment:

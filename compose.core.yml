@@ -79,7 +79,7 @@ services:
   # =============================================================================
 
   analytics:
-    image: ghcr.io/hanzoai/analytics:latest
+    image: ghcr.io/hanzoai/analytics:3.0.4
     container_name: hanzo-analytics
     restart: unless-stopped
     environment:
@@ -139,7 +139,7 @@ services:
   # =============================================================================
 
   base:
-    image: ghcr.io/hanzoai/base:latest
+    image: ghcr.io/hanzoai/base:0.52.3
     build:
       context: ../../base
       dockerfile: Dockerfile
@@ -165,7 +165,7 @@ services:
   # =============================================================================
 
   iam:
-    image: ghcr.io/hanzoai/iam:latest
+    image: ghcr.io/hanzoai/iam:1.1000.1
     container_name: hanzo-iam
     restart: unless-stopped
     environment:
@@ -195,7 +195,7 @@ services:
   # =============================================================================
 
   kms:
-    image: ghcr.io/hanzoai/kms:latest
+    image: ghcr.io/hanzoai/kms:1.0.6
     build:
       context: ../kms
       dockerfile: Dockerfile.standalone-infisical
@@ -235,7 +235,7 @@ services:
   # =============================================================================
 
   commerce:
-    image: ghcr.io/hanzoai/commerce:latest
+    image: ghcr.io/hanzoai/commerce:1.42.3
     build:
       context: ../../commerce
       dockerfile: Dockerfile
