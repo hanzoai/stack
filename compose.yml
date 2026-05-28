@@ -455,9 +455,6 @@ services:
   # KMS - Infisical Fork - Secrets Management (MIT)
   kms:
     image: ghcr.io/hanzoai/kms:1.0.6
-    build:
-      context: ../kms
-      dockerfile: Dockerfile.standalone-infisical
     container_name: hanzo-kms
     environment:
       - NODE_ENV=production
@@ -491,9 +488,6 @@ services:
   # Host - PocketHost Multi-tenant PocketBase Hosting (MIT)
   host:
     image: ghcr.io/hanzoai/host:latest
-    build:
-      context: ../../host
-      dockerfile: Dockerfile
     container_name: hanzo-host
     environment:
       - PH_HOME=/data
@@ -707,9 +701,6 @@ services:
   # Flow - Visual Workflow Builder (MIT - LangFlow fork)
   flow:
     image: ghcr.io/hanzoai/flow:latest
-    build:
-      context: ../../flow
-      dockerfile: Dockerfile
     container_name: hanzo-flow
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_flow
@@ -739,9 +730,6 @@ services:
   # Search App - AI-Powered Search Engine (MIT - Morphic fork)
   search-app:
     image: ghcr.io/hanzoai/search:1.37.0
-    build:
-      context: ../../search
-      dockerfile: Dockerfile
     container_name: hanzo-search-app
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_search
@@ -764,10 +752,6 @@ services:
   # Console - Cloud Dashboard & Admin UI
   console:
     image: ghcr.io/hanzoai/console:3.156.7
-    build:
-      context: ../../console
-      dockerfile: Dockerfile
-      target: production
     container_name: hanzo-console
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_console
@@ -800,9 +784,6 @@ services:
   # Gateway - API Gateway & Proxy (MIT)
   gateway:
     image: ghcr.io/hanzoai/gateway:2.14.1
-    build:
-      context: ../../gateway
-      dockerfile: Dockerfile
     container_name: hanzo-gateway
     environment:
       - NODE_ENV=production
@@ -856,10 +837,6 @@ services:
   # Cloud - API Backend & Knowledge Base (Apache 2.0 - Casibase fork)
   cloud:
     image: ghcr.io/hanzoai/cloud:1.783.1
-    build:
-      context: ../../cloud
-      dockerfile: Dockerfile
-      target: STANDARD
     container_name: hanzo-cloud
     environment:
       - RUNNING_IN_DOCKER=true
@@ -884,9 +861,6 @@ services:
   # Platform - PaaS Deployment Platform with Built-in Proxy (Apache 2.0 - Dokploy fork)
   platform:
     image: ghcr.io/hanzoai/platform:latest
-    build:
-      context: ../../platform
-      dockerfile: Dockerfile.ci
     container_name: hanzo-platform
     environment:
       - DATABASE_URL=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_platform

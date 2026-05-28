@@ -1,3 +1,0 @@
-// This file is temporarily disabled as it causes connection issues
-// The restart functionality is tested manually in test-stack-restart.sh
-// Move this back to restart.test.js when the connection handling is improved

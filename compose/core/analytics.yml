@@ -1,7 +1,0 @@
-
-services:
-  # Placeholder for analytics compose - ClickHouse is already in database.yml
-  # This file is reserved for future analytics-specific services like:
-  # - Metabase
-  # - Superset
-  # - Custom analytics dashboards

@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: hanzo
-  labels:
-    name: hanzo
-    app.kubernetes.io/name: hanzo
-    app.kubernetes.io/part-of: hanzo-stack

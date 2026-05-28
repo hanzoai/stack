@@ -1,187 +1,106 @@
 # Hanzo Stack
 
-Complete Hanzo AI infrastructure stack with all services, libraries, and tools organized as git submodules. Unified multi-language approach with standardized directory structure.
+OSS quickstart for the Hanzo AI infrastructure. One `docker compose up -d` to spin up the whole platform locally — databases, LLM gateway, chat, search, observability, and supporting services on published images from `ghcr.io/hanzoai/*`.
 
-## Quick Start
-
-### Clone with Submodules
 ```bash
-# Clone with all submodules
-git clone --recursive https://github.com/hanzoai/stack.git
-
-# Or if already cloned
-git submodule update --init --recursive
-
-# Update all submodules to latest
-git submodule update --remote --merge
-```
-
-### Development Mode (from submodules)
-```bash
-# Ensure submodules, then start dev stack with hot reload
-make submodules-ensure
-make dev-up
-```
-
-### Production Mode
-```bash
-# Start all services with pre-built images
+git clone https://github.com/hanzoai/stack.git
+cd stack
 docker compose up -d
-
-# Or use Makefile
-make up
 ```
 
-## Available Services
+**For development of Hanzo services themselves, use [`hanzo/universe`](https://github.com/hanzoai/universe) (the mono).**
+**For production Kubernetes, use [`hanzo/operator`](https://github.com/hanzoai/operator) (20-CRD k8s operator).**
 
-| Service | Production Port | Dev Port | Description |
-|---------|----------------|----------|-------------|
-| PostgreSQL | 5432 | 5432 | Primary database |
-| Redis | 6379 | 6379 | Cache and message queue |
-| MongoDB | 27017 | 27017 | Document database |
-| MinIO | 9000/9001 | 9000/9001 | S3-compatible storage |
-| Meilisearch | 7700 | 7700 | Search engine |
-| Router | 4000 | 4000 | LLM Gateway |
-| Chat | 3081 | 3081 | AI Chat with MCP support |
-| IDE | 3002 | 3002 | OpenHands AI development assistant |
-| Analytics | 3090 | 3090 | Privacy-focused analytics platform |
-| Runtime | 8002 | 8002 | Code execution sandbox |
-| Cloud | 3001 | 3001 | Infrastructure management (coming soon) |
-| Search | 3000 | 3000 | AI-powered search (coming soon) |
-| IAM | 8000 | 8000 | Identity management (coming soon) |
+This repo is the quickstart only.
 
-## Development Tools
+## What's in it
 
-Start additional development tools:
-```bash
-# Production mode
-docker compose --profile tools up -d
+Just compose files + minimal config. Everything is a published image from `ghcr.io/hanzoai/*`. **No source, no submodules, no build step.**
 
-# Development mode
-docker compose -f compose.dev.yml --profile tools up -d
-```
+| Service | Image | Local port |
+|---|---|---|
+| Postgres | `ghcr.io/hanzoai/sql` | 5432 |
+| Redis / KV | `ghcr.io/hanzoai/kv` | 6379 |
+| DocDB | `ghcr.io/hanzoai/docdb` | 27017 |
+| MinIO | `minio/minio` | 9000 / 9001 |
+| Meilisearch | `getmeili/meilisearch` | 7700 |
+| Qdrant | `qdrant/qdrant` | 6333 |
+| Temporal | `temporalio/auto-setup` | 7233 |
+| LLM Gateway | `ghcr.io/hanzoai/llm` | 4000 |
+| Chat | `ghcr.io/hanzoai/chat` | 3081 |
+| MCP | `ghcr.io/hanzoai/mcp` | varies |
+| Agent | `ghcr.io/hanzoai/agent` | varies |
+| Runtime | `ghcr.io/hanzoai/runtime` | 8002 |
+| Search | `ghcr.io/hanzoai/search` | 3000 |
+| IAM | `ghcr.io/hanzoai/iam` | 8000 |
+| Cloud | `ghcr.io/hanzoai/cloud` | 3001 |
+| Commerce | `ghcr.io/hanzoai/commerce` | 8001 |
+| Console | `ghcr.io/hanzoai/console` | 3060 |
+| Base | `ghcr.io/hanzoai/base` | 8090 |
 
-Tools available:
-- Adminer (Database UI): http://localhost:8080
-- Redis Commander: http://localhost:8081
-- Mongo Express: http://localhost:8082
+See [`compose.yml`](./compose.yml) for the full list. Per-environment overrides in `compose.dev.yml`, `compose.core.yml`, etc.
 
 ## Configuration
 
-### Environment Variables
-Copy `.env.example` to `.env` and configure:
+Copy the example env file and edit:
 
 ```bash
-# API Keys (required for Router)
+cp .env.example .env
+```
+
+The only values you typically need to set for a quickstart are API keys for the LLM gateway:
+
+```
 OPENAI_API_KEY=sk-...
 ANTHROPIC_API_KEY=sk-ant-...
-
-# Database Credentials (defaults provided)
-POSTGRES_USER=hanzo
-POSTGRES_PASSWORD=hanzo123
-
-# Service Ports (defaults provided)
-ROUTER_PORT=4000
-CHAT_PORT=3081
 ```
 
-### Router Configuration
-- Production: Uses `config/router-config-minimal.yaml`
-- Development: Uses `config/router-config.yaml` with full features
+Database credentials, ports, etc. all default sensibly.
 
-## File Structure
+## Pinning versions
 
-```
-stack/
-├── compose.yml              # Production compose with pre-built images
-├── compose.dev.yml          # Development compose building from source
-├── config/                  # Service configuration files
-│   ├── router-config.yaml
-│   └── router-config-minimal.yaml
-├── data/                    # Persistent data (dev mode)
-├── logs/                    # Service logs (dev mode)
-└── tests/                   # Integration tests
+The default compose uses `:latest`. For anything beyond quickstart, override in your own `compose.override.yml`:
+
+```yaml
+services:
+  llm:
+    image: ghcr.io/hanzoai/llm:v1.42.0
+  chat:
+    image: ghcr.io/hanzoai/chat:v0.7.3
 ```
 
-## Testing
+Or fork this repo and pin to whatever semver you want.
 
-Run integration tests:
+## Profiles
+
 ```bash
-cd tests
-npm install
-npm test
+docker compose up -d                                       # everything
+docker compose -f compose.yml -f compose.core.yml up -d    # databases + LLM + chat
+docker compose -f compose.yml -f compose.dev.yml up -d     # dev-ergonomic ports + volumes
 ```
+
+## Going beyond the quickstart
+
+This stack is intentionally simple. If you need:
+
+| Need | Use instead |
+|---|---|
+| Develop / modify a Hanzo service | [`hanzo/universe`](https://github.com/hanzoai/universe) — the mono with full source |
+| Run in production Kubernetes | [`hanzo/operator`](https://github.com/hanzoai/operator) — 20-CRD operator (Service, Datastore, SQL/KV/DocDB/S3 facades, Gateway, MPC, Network, Ingress, DNS, more) |
+| Run in production PaaS | [`platform.hanzo.ai`](https://platform.hanzo.ai) — Dokploy-based PaaS, deploys from git |
+| Multi-tenant SQLite + extension runtimes | [`hanzo/base`](https://github.com/hanzoai/base) — embedded in every Hanzo Go service |
+| LLM gateway only | [`hanzo/llm`](https://github.com/hanzoai/llm) — 100+ providers, OpenAI-compatible |
+| Identity (OAuth/OIDC/SAML) | [`hanzo/iam`](https://github.com/hanzoai/iam) |
+| Observability | [`hanzo/console`](https://github.com/hanzoai/console) (traces/scores/prompts) + [`hanzo/o11y`](https://github.com/hanzoai/o11y) |
 
 ## Troubleshooting
 
-### Services not starting
 ```bash
-# Check service logs
-docker compose logs [service-name]
-
-# Restart specific service
-docker compose restart [service-name]
-
-# Clean restart everything
-docker compose down -v
-docker compose up -d
+docker compose logs <service-name>      # logs
+docker compose restart <service-name>   # restart one service
+docker compose down -v                  # nuke everything, including volumes
 ```
-
-### Port conflicts
-```bash
-# Check what's using a port
-lsof -i :PORT_NUMBER
-
-# Kill process using port
-kill -9 PID
-```
-
-### Volume issues
-```bash
-# List volumes
-docker volume ls | grep hanzo
-
-# Remove specific volume
-docker volume rm VOLUME_NAME
-
-# Remove all Hanzo volumes (WARNING: deletes data)
-docker compose down -v
-```
-
-## Production Deployment
-
-For production deployment:
-
-1. Use `compose.yml` (not `compose.dev.yml`)
-2. Set proper environment variables in `.env`
-3. Use real API keys for LLM providers
-4. Configure proper database passwords
-5. Set up SSL/TLS termination (use Traefik or nginx)
-6. Enable backups for data volumes
-
-## Development Workflow
-
-1. Clone all required repositories alongside the stack:
-   ```
-   hanzo/
-   ├── stack/      # This repository
-   └── (optional siblings)  # Not required when using submodules
-   ```
-
-2. Start development stack:
-   ```bash
-   cd stack
-   make submodules-ensure
-   make dev-up
-   ```
-
-3. Services will hot-reload when you edit source files
-
-4. View logs for debugging:
-   ```bash
-   make dev-logs
-   ```
 
 ## License
 
-See LICENSE file in the root directory.
+MIT. See [LICENSE](./LICENSE).
