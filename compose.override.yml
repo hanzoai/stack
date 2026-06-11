@@ -99,9 +99,9 @@ services:
       - NODE_ENV=production
       - DOMAIN=hanzo.local
       # Hanzo IAM integration
-      - HANZO_IAM_URL=http://iam:8000
-      - HANZO_IAM_CLIENT_ID=hanzo-platform-client-id
-      - HANZO_IAM_CLIENT_SECRET=a4b5c6d7e8f90123456789abcdef0123456789abcdef01
+      - IAM_URL=http://iam:8000
+      - IAM_CLIENT_ID=hanzo-platform-client-id
+      - IAM_CLIENT_SECRET=a4b5c6d7e8f90123456789abcdef0123456789abcdef01
 
   # KMS: use upstream infisical (has ARM64 builds)
   kms:

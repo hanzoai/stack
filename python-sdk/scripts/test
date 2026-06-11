@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+
+set -e
+
+cd "$(dirname "$0")/.."
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+NC='\033[0m' # No Color
+
+# No longer need Prism server - using respx mocks instead
+echo -e "${GREEN}✔ Using respx mocks for testing (no external server required)${NC}"
+echo
+
+export DEFER_PYDANTIC_BUILD=false
+
+echo "==> Running tests"
+rye run pytest "$@"
+
+# Skip Pydantic v1 tests if nox is not available
+if command -v nox >/dev/null 2>&1 || rye run python -c "import nox" 2>/dev/null; then
+  echo "==> Running Pydantic v1 tests"
+  rye run nox -s test-pydantic-v1 -- "$@"
+else
+  echo "==> Skipping Pydantic v1 tests (nox not available)"
+fi
