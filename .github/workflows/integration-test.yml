@@ -16,7 +16,7 @@ env:
 jobs:
   essential-services-test:
     name: Essential Services Test
-    runs-on: ubuntu-latest
+    runs-on: hanzo-build-linux-amd64
     timeout-minutes: 15
 
     steps:
@@ -163,7 +163,7 @@ jobs:
 
   batteries-included-build-test:
     name: Compose Config Validation
-    runs-on: ubuntu-latest
+    runs-on: hanzo-build-linux-amd64
     timeout-minutes: 20
 
     steps:
@@ -216,7 +216,7 @@ jobs:
 
   makefile-test:
     name: Makefile Commands Test
-    runs-on: ubuntu-latest
+    runs-on: hanzo-build-linux-amd64
     timeout-minutes: 5
 
     steps:
