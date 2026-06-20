@@ -10,7 +10,7 @@ on:
 jobs:
   jest-tests:
     name: Run Jest Tests with Real Services
-    runs-on: ubuntu-latest
+    runs-on: hanzo-build-linux-amd64
     timeout-minutes: 15
 
     services:
