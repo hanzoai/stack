@@ -452,7 +452,7 @@ services:
     networks:
       - hanzo-network
 
-  # KMS - Infisical Fork - Secrets Management (MIT)
+  # KMS - Secrets Management (MIT, luxfi/kms MPC)
   kms:
     image: ghcr.io/hanzoai/kms:1.0.6
     container_name: hanzo-kms
