@@ -109,12 +109,12 @@ services:
 
   # Datastore: use upstream clickhouse (has ARM64 builds)
   datastore:
-    image: clickhouse/clickhouse-server:latest
+    image: ghcr.io/hanzoai/datastore:26.6.1.1
     environment:
       - CLICKHOUSE_USER=default
       - CLICKHOUSE_PASSWORD=hanzo123
     healthcheck:
-      test: ["CMD", "clickhouse-client", "--password", "hanzo123", "--query", "SELECT 1"]
+      test: ["CMD", "datastore-client", "--password", "hanzo123", "--query", "SELECT 1"]
       interval: 10s
       timeout: 5s
       retries: 5
