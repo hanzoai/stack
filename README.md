@@ -1,3 +1,5 @@
+<p align="center"><img src=".github/hero.svg" alt="stack" width="880"></p>
+
 # Hanzo Stack
 
 OSS quickstart for the Hanzo AI infrastructure. One `docker compose up -d` to spin up the whole platform locally — databases, LLM gateway, chat, search, observability, and supporting services on published images from `ghcr.io/hanzoai/*`.
