@@ -452,33 +452,23 @@ services:
     networks:
       - hanzo-network
 
-  # KMS - Secrets Management (MIT, luxfi/kms MPC)
+  # KMS - luxfi/kms (Go/ZAP, embedded ZapDB). No Postgres/Redis/Node/Infisical.
+  # Local dev: ZAP disabled (ZAP_PORT=0) → secrets-only, no consensus/luxd needed.
+  # (v1.11.x gates the consensus authorizer behind ZAP, so ZAP_PORT=0 boots clean.)
   kms:
-    image: ghcr.io/hanzoai/kms:1.0.6
+    image: ghcr.io/luxfi/kms:1.11.9
     container_name: hanzo-kms
     environment:
-      - NODE_ENV=production
-      - ENCRYPTION_KEY=${KMS_ENCRYPTION_KEY:-6de33a4e5d9c57cf9e41b7147a0aff04}
-      - AUTH_SECRET=${KMS_AUTH_SECRET:-a-very-long-secret-for-auth}
-      - DB_CONNECTION_URI=postgresql://${POSTGRES_USER:-hanzo}:${POSTGRES_PASSWORD:-hanzo123}@postgres:5432/${POSTGRES_DB:-hanzo}_kms
-      - REDIS_URL=redis://:${REDIS_PASSWORD:-hanzo123}@redis:6379
-      - SITE_URL=${KMS_SITE_URL:-http://localhost:8071}
-      - SMTP_HOST=${SMTP_HOST:-}
-      - SMTP_PORT=${SMTP_PORT:-587}
-      - SMTP_USERNAME=${SMTP_USERNAME:-}
-      - SMTP_PASSWORD=${SMTP_PASSWORD:-}
-      - SMTP_FROM_ADDRESS=${SMTP_FROM_ADDRESS:-}
-      - SMTP_FROM_NAME=${SMTP_FROM_NAME:-Hanzo KMS}
-      - TELEMETRY_ENABLED=false
+      - ZAP_PORT=0
+      # local dev only, not a real key — fixed 32-byte base64 dev values
+      - KMS_MASTER_KEY_B64=aGFuem8tbG9jYWwtZGV2LWttcy1tYXN0ZXIta2V5ISE=
+      - KMS_ENCRYPTION_KEY_B64=aGFuem8tbG9jYWwtZGV2LWttcy1lbmNyeXB0a2V5ISE=
     ports:
       - "${KMS_PORT:-8071}:8080"
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
+    volumes:
+      - kms_data:/data/kms
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/api/status"]
+      test: ["CMD", "wget", "-qO-", "http://localhost:8080/healthz"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -923,6 +913,7 @@ volumes:
   cloud_logs:
   platform_data:
   platform_certs:
+  kms_data:
 
 # =============================================================================
 # NETWORKS
