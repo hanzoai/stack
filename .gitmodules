@@ -1,30 +1,40 @@
 [submodule "iam"]
 	path = iam
 	url = https://github.com/hanzoai/iam.git
+	ignore = dirty
 [submodule "js-sdk"]
 	path = js-sdk
 	url = https://github.com/hanzoai/js-sdk.git
+	ignore = dirty
 [submodule "libs/agent"]
 	path = libs/agent
 	url = https://github.com/hanzoai/agent.git
+	ignore = dirty
 [submodule "mcp"]
 	path = mcp
 	url = https://github.com/hanzoai/mcp.git
+	ignore = dirty
 [submodule "operative"]
 	path = operative
 	url = https://github.com/hanzoai/operative.git
+	ignore = dirty
 [submodule "platform"]
 	path = platform
 	url = https://github.com/hanzoai/platform.git
+	ignore = dirty
 [submodule "sdk"]
 	path = sdk
 	url = https://github.com/hanzoai/sdk.git
+	ignore = dirty
 [submodule "services/chat"]
 	path = services/chat
 	url = https://github.com/hanzoai/chat.git
+	ignore = dirty
 [submodule "services/jin"]
 	path = services/jin
 	url = https://github.com/hanzoai/jin.git
+	ignore = dirty
 [submodule "services/search"]
 	path = services/search
 	url = https://github.com/hanzoai/search.git
+	ignore = dirty
