@@ -1,0 +1,30 @@
+[submodule "iam"]
+	path = iam
+	url = https://github.com/hanzoai/iam.git
+[submodule "js-sdk"]
+	path = js-sdk
+	url = https://github.com/hanzoai/js-sdk.git
+[submodule "libs/agent"]
+	path = libs/agent
+	url = https://github.com/hanzoai/agent.git
+[submodule "mcp"]
+	path = mcp
+	url = https://github.com/hanzoai/mcp.git
+[submodule "operative"]
+	path = operative
+	url = https://github.com/hanzoai/operative.git
+[submodule "platform"]
+	path = platform
+	url = https://github.com/hanzoai/platform.git
+[submodule "sdk"]
+	path = sdk
+	url = https://github.com/hanzoai/sdk.git
+[submodule "services/chat"]
+	path = services/chat
+	url = https://github.com/hanzoai/chat.git
+[submodule "services/jin"]
+	path = services/jin
+	url = https://github.com/hanzoai/jin.git
+[submodule "services/search"]
+	path = services/search
+	url = https://github.com/hanzoai/search.git
