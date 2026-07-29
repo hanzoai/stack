@@ -2,7 +2,7 @@
 
 Supports multiple authentication methods:
 1. API Key (HANZO_API_KEY environment variable)
-2. Email/Password via IAM (iam.hanzo.ai - Casdoor)
+2. Email/Password via IAM (iam.hanzo.ai)
 3. SSO authentication
 4. MCP flow authentication
 """
