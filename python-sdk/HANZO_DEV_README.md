@@ -299,7 +299,7 @@ Apache 2.0 - See LICENSE file
 - [Documentation](https://docs.hanzo.ai)
 - [GitHub](https://github.com/hanzoai/python-sdk)
 - [PyPI](https://pypi.org/project/hanzo/)
-- [Discord](https://discord.gg/hanzo)
+- [Discord](https://discord.gg/CJCyAsm9Vr)
 
 ---
 

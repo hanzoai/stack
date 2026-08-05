@@ -347,7 +347,7 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 ## 📞 Support
 
 - Documentation: https://docs.hanzo.ai
-- Discord: https://discord.gg/hanzo
+- Discord: https://discord.gg/CJCyAsm9Vr
 - Email: support@hanzo.ai
 - GitHub Issues: https://github.com/hanzoai/python-sdk/issues
 
