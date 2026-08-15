@@ -330,7 +330,7 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 - API keys are encrypted at rest
 - All communications use TLS 1.3+
 - Regular security audits
-- SOC 2 Type II certified
+- SOC 2 Type II controls
 
 Report security issues to security@hanzo.ai
 
