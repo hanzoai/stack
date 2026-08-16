@@ -325,12 +325,11 @@ We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) f
 - Use batch operations when possible
 - Configure appropriate timeouts
 
-## 🔒 Security
+## Security
 
-- API keys are encrypted at rest
-- All communications use TLS 1.3+
-- Regular security audits
-- SOC 2 Type II controls
+- Transport is TLS 1.3+. Secrets belong in a KMS, never in source or plaintext.
+- API keys are encrypted at rest.
+- Compatible with SOC 2. Continual internal audits, report available upon request.
 
 Report security issues to security@hanzo.ai
 
