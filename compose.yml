@@ -475,7 +475,7 @@ services:
     networks:
       - hanzo-network
 
-  # Host - PocketHost Multi-tenant PocketBase Hosting (MIT)
+  # Host - multi-tenant Base hosting (MIT)
   host:
     image: ghcr.io/hanzoai/host:latest
     container_name: hanzo-host
