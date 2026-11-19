@@ -15,7 +15,7 @@ docker compose up -d
 **For development of Hanzo services themselves, use [`hanzo/universe`](https://github.com/hanzoai/universe) (the mono).**
 **For production Kubernetes, use [`hanzo/operator`](https://github.com/hanzoai/operator) (20-CRD k8s operator).**
 
-This repo's root remains the image-only infrastructure quickstart. The optional [FanClub AI reference application](examples/fanclub-ai/README.md) lives under `examples/` and does not alter root Compose or production orchestration.
+This repo remains the image-only infrastructure quickstart; application code belongs in `hanzoai/cloud`.
 
 ## What's in it
 
@@ -44,17 +44,9 @@ Just compose files + minimal config. Everything is a published image from `ghcr.
 
 See [`compose.yml`](./compose.yml) for the full list. Per-environment overrides in `compose.dev.yml`, `compose.core.yml`, etc.
 
-## Optional reference application — FanClub AI
+## Reference applications
 
-A fictional, industry-neutral organization intelligence prototype is available at [`examples/fanclub-ai/`](examples/fanclub-ai/README.md). It demonstrates persistent synthetic records, three independent tenant workspaces, decision baselines, human-approved simulated actions, audit and optional private Hanzo Engine inference.
-
-```bash
-cd examples/fanclub-ai
-npm start       # Node.js 22.13+, no Docker required
-npm test        # synthetic-data / tenant-boundary tests
-```
-
-**This is an isolated demonstrator, not a production-integrated Hanzo service.** Its demo SQLite and tenant selector must be replaced by authenticated Hanzo Cloud + Framework/Base + IAM; see [integration plan](examples/fanclub-ai/docs/hanzo-integration.md). It uses no live customer data and sends no external actions. Core infrastructure remains the published-image quickstart described below.
+Canonical application code belongs in [`hanzoai/cloud`](https://github.com/hanzoai/cloud), hosted by Cloud's framework, Base, IAM, MCP and private inference. FanClub AI migration is tracked by [Cloud issue #57](https://github.com/hanzoai/cloud/issues/57). The previous standalone `examples/fanclub-ai` Node server is being retired after the Cloud migration is verified.
 
 ## Configuration
 
