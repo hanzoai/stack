@@ -17,13 +17,6 @@ Defaults to `:latest`; pin via your own `compose.override.yml`.
 Full docs: README.md
 
 
-## Optional demo: FanClub AI
+## Canonical FanClub application ownership
 
-- `examples/fanclub-ai/` is a **fictional, industry-neutral** reference product with three organizations (sports, culture, association), not a real FanGrowth deployment.
-- Start with `examples/fanclub-ai/README.md`, `docs/hanzo-integration.md` and `docs/white-label.md`; use `npm start` and `npm test` from the demo directory.
-- The demo server's Node SQLite adapter and tenant selector are *not* authoritative Hanzo Base/Framework or IAM; NEVER claim production tenancy or customer data isolation from this proof of concept.
-- Inference defaults to a disclosed deterministic baseline; `HANZO_ENGINE_URL` configures optional real local text inference with aggregate synthetic metrics.
-- A human approval records only a simulated action; no outbound CRM messages or commerce payments are emitted.
-- Reuse Cloud, Framework, Base, IAM, Engine and MCP to implement real FC-1 / FC-2 integration; do not invent duplicate production backend or train-to-serve claims.
-- `hanzo.config.example.ts` illustrates the target UDE only; it is NOT a tested current CLI manifest.
-- The `/stack`, `/framework`, `/oss` site paths are **website routes**, not GitHub directories. Do not claim this repository change deploys those routes.
+Do not introduce an application backend or template into this infrastructure quickstart. FanClub AI belongs in `hanzoai/cloud`, where Cloud Framework/Base, IAM, MCP and AI are authoritative. Migration is tracked by `hanzoai/cloud#57`. The old `examples/fanclub-ai` Node/SQLite demo was a prototype, not the canonical backend.
