@@ -1,0 +1,16 @@
+{
+  "name": "@hanzo/fanclub-ai-reference",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Fictional multi-industry FanClub AI reference application on the Hanzo OS integration path",
+  "engines": {
+    "node": ">=22.13"
+  },
+  "scripts": {
+    "start": "node --disable-warning=ExperimentalWarning server.mjs",
+    "dev": "node --watch --disable-warning=ExperimentalWarning server.mjs",
+    "check": "node --check server.mjs && node --check public/app.js",
+    "test": "node --disable-warning=ExperimentalWarning --test tests/*.test.mjs"
+  }
+}
