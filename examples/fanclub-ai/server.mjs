@@ -41,7 +41,7 @@ export function scoreMember(member) {
   const days = Number(member.days_to_renewal);
   const visits = Number(member.visits_90d);
   const engagement = Number(member.engagement);
-  const atRisk = clamp(round(27 + (days < 45 ? 21 : 0) + (visits === 0 ? 23 : visits < 3 ? 13 : -9) + (engagement < 35 ? 26 : engagement > 80 ? -20 : 0) + (member.status === 'Lapsed' ? 29 : 0)), 4, 98);
+  const atRisk = clamp(round(30 + (days < 65 ? 20 : 0) + (visits === 0 ? 24 : visits < 5 ? 15 : -8) + (engagement < 50 ? 22 : engagement > 85 ? -18 : 0) + (member.status === 'Lapsed' ? 24 : 0)), 4, 98);
   const nextBest = !member.consent ? 'No outreach permitted' : atRisk >= 70 ? 'Human review: renewal follow-up' : visits <= 1 ? 'Offer a second experience' : engagement > 72 ? 'Consider membership upgrade' : 'Monitor engagement';
   return { risk: atRisk, priority: atRisk >= 70 ? 'High' : atRisk >= 43 ? 'Medium' : 'Low', nextBest, reason: [visits <= 1?'Low recent participation':'Recent participation',days < 45?'Renewal approaching':'Renewal not imminent',engagement < 35?'Low engagement':'Engagement observed'] };
 }
