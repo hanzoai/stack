@@ -42,6 +42,8 @@ HANZO_ENGINE_URL=http://127.0.0.1:36900 \
 HANZO_ENGINE_MODEL=zen6-nano npm start
 ```
 
+Non-local Engine URLs are blocked by default. A separately approved private network endpoint requires explicit `HANZO_ENGINE_ALLOW_REMOTE=true`, after checking data residency and egress controls.
+
 The actual Engine installation and model selection must be verified against the checked-out Hanzo version and local hardware. This app sends `POST /v1/chat/completions` with non-sensitive aggregate synthetic metrics; if the configured Engine is unavailable, it shows an explicit error rather than silently claiming AI ran.
 
 ## Hanzo OS integration plan
