@@ -135,6 +135,9 @@ function evalBaseline(db,tenant){
 }
 async function engineRequest(question,summary) {
   if(!ENGINE_URL)return {provider:'local-rules',text:ruleAnswer(question,summary),disclaimer:'Deterministic demo response. No AI model was invoked.'};
+  if (!/^https?:\/\/(127\.0\.0\.1|localhost|\[::1\])(?::\d+)?(?:\/|$)/i.test(ENGINE_URL) && process.env.HANZO_ENGINE_ALLOW_REMOTE !== 'true') {
+    throw new Error('Non-local inference endpoints require explicit HANZO_ENGINE_ALLOW_REMOTE=true');
+  }
   // Only aggregated synthetic data is forwarded; no real customer/person records.
   const ctl=new AbortController();const timeout=setTimeout(()=>ctl.abort(),12000);
   try {
@@ -176,7 +179,7 @@ async function serveStatic(req,res,url){
   if(!existsSync(path))return err(res,404,'Not found');
   const data=await readFile(path);
   const mime={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8','.svg':'image/svg+xml','.png':'image/png'}[extname(path)]||'application/octet-stream';
-  res.writeHead(200,{'Content-Type':mime,'X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; connect-src 'self'"});res.end(data);
+  res.writeHead(200,{'Content-Type':mime,'X-Content-Type-Options':'nosniff','Content-Security-Policy':"default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; connect-src 'self'"});res.end(data);
 }
 export async function createApp({dbPath=databasePath}={}) {
   const db=await makeDb(dbPath);
