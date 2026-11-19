@@ -77,7 +77,7 @@ async function makeDb(dbFile=databasePath) {
     const insert = db.prepare(`INSERT INTO members VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)`);
     for (let i=0; i<90; i++) {
       const seed = (i * 19 + t.id.length * 23) % 101;
-      const visits = (i * 7 + t.id.length) % 14;
+      const visits = (i * 5 + t.id.length * 3) % 13;
       const engagement = clamp(18 + ((i*31 + t.id.length*11) % 77),0,100);
       const days = 8 + ((i*11 + t.id.length) % 158);
       const consent = i % 9 !== 0 ? 1 : 0;
