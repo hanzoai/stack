@@ -1,4 +1,4 @@
-# Swarm Tool V2 Test Summary
+# Swarm Tool V8 Test Summary
 
 ## Overview
 
@@ -65,13 +65,13 @@ pytest tests/test_swarm/test_swarm_v2_comprehensive.py -xvs
 ### Individual Tests:
 ```bash
 # Test with hanzo-agents
-pytest tests/test_swarm/test_swarm_v2_comprehensive.py::TestSwarmV2Comprehensive::test_swarm_v2_with_hanzo_agents -xvs
+pytest tests/test_swarm/test_swarm_v2_comprehensive.py::TestSwarmV8Comprehensive::test_swarm_v2_with_hanzo_agents -xvs
 
 # Test fallback mode
-pytest tests/test_swarm/test_swarm_v2_comprehensive.py::TestSwarmV2Comprehensive::test_swarm_v2_fallback_mode -xvs
+pytest tests/test_swarm/test_swarm_v2_comprehensive.py::TestSwarmV8Comprehensive::test_swarm_v2_fallback_mode -xvs
 
 # Test network topologies
-pytest tests/test_swarm/test_swarm_v2_comprehensive.py::TestSwarmV2Comprehensive::test_swarm_v2_network_topologies -xvs
+pytest tests/test_swarm/test_swarm_v2_comprehensive.py::TestSwarmV8Comprehensive::test_swarm_v2_network_topologies -xvs
 ```
 
 ## Results

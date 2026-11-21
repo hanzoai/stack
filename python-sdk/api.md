@@ -390,7 +390,7 @@ Methods:
 Types:
 
 ```python
-from hanzoai.types import RerankCreateResponse, RerankCreateV1Response, RerankCreateV2Response
+from hanzoai.types import RerankCreateResponse, RerankCreateV1Response, RerankCreateV8Response
 ```
 
 Methods:

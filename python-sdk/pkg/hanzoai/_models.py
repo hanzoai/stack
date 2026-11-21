@@ -50,7 +50,7 @@ from ._utils import (
     strip_annotated_type,
 )
 from ._compat import (
-    PYDANTIC_V2,
+    PYDANTIC_V8,
     ConfigDict,
     GenericModel as BaseGenericModel,
     get_args,
@@ -86,7 +86,7 @@ class _ConfigProtocol(Protocol):
 
 
 class BaseModel(pydantic.BaseModel):
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         model_config: ClassVar[ConfigDict] = ConfigDict(
             extra="allow",
             defer_build=coerce_boolean(os.environ.get("DEFER_PYDANTIC_BUILD", "true")),
@@ -219,7 +219,7 @@ class BaseModel(pydantic.BaseModel):
         _extra = {}
         for key, value in values.items():
             if key not in model_fields:
-                if PYDANTIC_V2:
+                if PYDANTIC_V8:
                     _extra[key] = value
                 else:
                     _fields_set.add(key)
@@ -227,7 +227,7 @@ class BaseModel(pydantic.BaseModel):
 
         object.__setattr__(m, "__dict__", fields_values)
 
-        if PYDANTIC_V2:
+        if PYDANTIC_V8:
             # these properties are copied from Pydantic's `model_construct()` method
             object.__setattr__(m, "__pydantic_private__", None)
             object.__setattr__(m, "__pydantic_extra__", _extra)
@@ -247,7 +247,7 @@ class BaseModel(pydantic.BaseModel):
         # although not in practice
         model_construct = construct
 
-    if not PYDANTIC_V2:
+    if not PYDANTIC_V8:
         # we define aliases for some of the new pydantic v2 methods so
         # that we can just document these methods without having to specify
         # a specific pydantic version as some users may not know which
@@ -367,7 +367,7 @@ def _construct_field(value: object, field: FieldInfo, key: str) -> object:
     if value is None:
         return field_get_default(field)
 
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         type_ = field.annotation
     else:
         type_ = cast(type, field.outer_type_)  # type: ignore
@@ -630,7 +630,7 @@ def _build_discriminated_union_meta(
     for variant in get_args(union):
         variant = strip_annotated_type(variant)
         if is_basemodel_type(variant):
-            if PYDANTIC_V2:
+            if PYDANTIC_V8:
                 field = _extract_field_schema_pv2(variant, discriminator_field_name)
                 if not field:
                     continue
@@ -720,7 +720,7 @@ else:
         pass
 
 
-if PYDANTIC_V2:
+if PYDANTIC_V8:
     from pydantic import TypeAdapter as _TypeAdapter
 
     _CachedTypeAdapter = cast(
@@ -788,7 +788,7 @@ class FinalRequestOptions(pydantic.BaseModel):
     json_data: Union[Body, None] = None
     extra_json: Union[AnyMapping, None] = None
 
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         model_config: ClassVar[ConfigDict] = ConfigDict(arbitrary_types_allowed=True)
     else:
 
@@ -826,7 +826,7 @@ class FinalRequestOptions(pydantic.BaseModel):
             key: strip_not_given(value)
             for key, value in values.items()
         }
-        if PYDANTIC_V2:
+        if PYDANTIC_V8:
             return super().model_construct(_fields_set, **kwargs)
         return cast(
             FinalRequestOptions, super().construct(_fields_set, **kwargs)

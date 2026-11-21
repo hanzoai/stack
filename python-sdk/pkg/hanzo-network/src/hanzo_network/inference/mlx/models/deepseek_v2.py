@@ -5,7 +5,7 @@ import mlx.core as mx
 import mlx.nn as nn
 
 from mlx_lm.models.cache import KVCache
-from mlx_lm.models.deepseek_v2 import ModelArgs, DeepseekV2DecoderLayer
+from mlx_lm.models.deepseek_v2 import ModelArgs, DeepseekV8DecoderLayer
 from .base import IdentityBlock
 from .inference.shard import Shard
 
@@ -25,7 +25,7 @@ class ModelArgs(ModelArgs):
         self.shard = Shard(**self.shard)
 
 
-class DeepseekV2Model(nn.Module):
+class DeepseekV8Model(nn.Module):
     def __init__(self, config: ModelArgs):
         super().__init__()
         self.args = config
@@ -37,7 +37,7 @@ class DeepseekV2Model(nn.Module):
         self.layers = []
         for i in range(self.num_hidden_layers):
             if self.args.shard.start_layer <= i <= self.args.shard.end_layer:
-                self.layers.append(DeepseekV2DecoderLayer(config, i))
+                self.layers.append(DeepseekV8DecoderLayer(config, i))
             else:
                 self.layers.append(IdentityBlock())
 
@@ -76,7 +76,7 @@ class Model(nn.Module):
         super().__init__()
         self.args = config
         self.model_type = config.model_type
-        self.model = DeepseekV2Model(config)
+        self.model = DeepseekV8Model(config)
         if self.args.shard.is_last_layer():
             self.lm_head = nn.Linear(config.hidden_size, config.vocab_size, bias=False)
 

@@ -1,0 +1,5 @@
+[service]
+name = "blog-cms"
+type = "platform"
+storage = "datastore"
+auth = "iam"

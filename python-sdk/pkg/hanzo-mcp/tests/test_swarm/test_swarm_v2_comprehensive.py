@@ -27,7 +27,7 @@ from hanzo_mcp.tools.agent.swarm_tool import SwarmTool
 from hanzo_mcp.tools.common.permissions import PermissionManager
 
 
-class TestSwarmV2Comprehensive:
+class TestSwarmV8Comprehensive:
     """Comprehensive tests for swarm_tool_v2 functionality."""
 
     @pytest.fixture
@@ -503,11 +503,11 @@ Detailed Results:
 def run_comprehensive_tests():
     """Run comprehensive tests without pytest."""
     print("\n" + "=" * 80)
-    print("COMPREHENSIVE SWARM V2 TESTS")
+    print("COMPREHENSIVE SWARM V8 TESTS")
     print("=" * 80)
 
     # Create test instance
-    test = TestSwarmV2Comprehensive()
+    test = TestSwarmV8Comprehensive()
 
     # Set up test environment manually
     test_dir = tempfile.mkdtemp()

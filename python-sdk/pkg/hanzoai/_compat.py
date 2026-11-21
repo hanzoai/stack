@@ -17,7 +17,7 @@ _ModelT = TypeVar("_ModelT", bound=pydantic.BaseModel)
 # Pyright incorrectly reports some of our functions as overriding a method when they don't
 # pyright: reportIncompatibleMethodOverride=false
 
-PYDANTIC_V2 = pydantic.VERSION.startswith("2.")
+PYDANTIC_V8 = pydantic.VERSION.startswith("2.")
 
 # v1 re-exports
 if TYPE_CHECKING:
@@ -46,7 +46,7 @@ if TYPE_CHECKING:
         ...
 
 else:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         from pydantic.v1.typing import (
             get_args as get_args,
             is_union as is_union,
@@ -76,7 +76,7 @@ else:
 if TYPE_CHECKING:
     from pydantic import ConfigDict as ConfigDict
 else:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         from pydantic import ConfigDict
     else:
         # TODO: provide an error message here?
@@ -85,7 +85,7 @@ else:
 
 # renamed methods / properties
 def parse_obj(model: type[_ModelT], value: object) -> _ModelT:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         return model.model_validate(value)
     else:
         return cast(
@@ -94,14 +94,14 @@ def parse_obj(model: type[_ModelT], value: object) -> _ModelT:
 
 
 def field_is_required(field: FieldInfo) -> bool:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         return field.is_required()
     return field.required  # type: ignore
 
 
 def field_get_default(field: FieldInfo) -> Any:
     value = field.get_default()
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         from pydantic_core import PydanticUndefined
 
         if value == PydanticUndefined:
@@ -111,31 +111,31 @@ def field_get_default(field: FieldInfo) -> Any:
 
 
 def field_outer_type(field: FieldInfo) -> Any:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         return field.annotation
     return field.outer_type_  # type: ignore
 
 
 def get_model_config(model: type[pydantic.BaseModel]) -> Any:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         return model.model_config
     return model.__config__  # type: ignore
 
 
 def get_model_fields(model: type[pydantic.BaseModel]) -> dict[str, FieldInfo]:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         return model.model_fields
     return model.__fields__  # type: ignore
 
 
 def model_copy(model: _ModelT, *, deep: bool = False) -> _ModelT:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         return model.model_copy(deep=deep)
     return model.copy(deep=deep)  # type: ignore
 
 
 def model_json(model: pydantic.BaseModel, *, indent: int | None = None) -> str:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         return model.model_dump_json(indent=indent)
     return model.json(indent=indent)  # type: ignore
 
@@ -149,14 +149,14 @@ def model_dump(
     warnings: bool = True,
     mode: Literal["json", "python"] = "python",
 ) -> dict[str, Any]:
-    if PYDANTIC_V2 or hasattr(model, "model_dump"):
+    if PYDANTIC_V8 or hasattr(model, "model_dump"):
         return model.model_dump(
             mode=mode,
             exclude=exclude,
             exclude_unset=exclude_unset,
             exclude_defaults=exclude_defaults,
             # warnings are not supported in Pydantic v1
-            warnings=warnings if PYDANTIC_V2 else True,
+            warnings=warnings if PYDANTIC_V8 else True,
         )
     return cast(
         "dict[str, Any]",
@@ -169,7 +169,7 @@ def model_dump(
 
 
 def model_parse(model: type[_ModelT], data: Any) -> _ModelT:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         return model.model_validate(data)
     return model.parse_obj(data)  # pyright: ignore[reportDeprecated]
 
@@ -180,7 +180,7 @@ if TYPE_CHECKING:
     class GenericModel(pydantic.BaseModel): ...
 
 else:
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         # there no longer needs to be a distinction in v2 but
         # we still have to create our own subclass to avoid
         # inconsistent MRO ordering errors

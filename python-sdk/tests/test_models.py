@@ -8,7 +8,7 @@ import pydantic
 from pydantic import Field
 
 from hanzoai._utils import PropertyInfo
-from hanzoai._compat import PYDANTIC_V2, parse_obj, model_dump, model_json
+from hanzoai._compat import PYDANTIC_V8, parse_obj, model_dump, model_json
 from hanzoai._models import BaseModel, construct_type
 
 
@@ -294,7 +294,7 @@ def test_nested_union_invalid_data() -> None:
     assert cast(bool, m.foo) is True
 
     m = Model.construct(foo={"name": 3})
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         assert isinstance(m.foo, Submodel1)
         assert m.foo.name == 3  # type: ignore
     else:
@@ -426,7 +426,7 @@ def test_iso8601_datetime() -> None:
 
     expected = datetime(2019, 12, 27, 18, 11, 19, 117000, tzinfo=timezone.utc)
 
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         expected_json = '{"created_at":"2019-12-27T18:11:19.117000Z"}'
     else:
         expected_json = '{"created_at": "2019-12-27T18:11:19.117000+00:00"}'
@@ -528,7 +528,7 @@ def test_to_dict() -> None:
     assert m4.to_dict(mode="python") == {"created_at": datetime.fromisoformat(time_str)}
     assert m4.to_dict(mode="json") == {"created_at": time_str}
 
-    if not PYDANTIC_V2:
+    if not PYDANTIC_V8:
         with pytest.raises(
             ValueError, match="warnings is only supported in Pydantic v2"
         ):
@@ -555,7 +555,7 @@ def test_forwards_compat_model_dump_method() -> None:
     assert m3.model_dump() == {"foo": None}
     assert m3.model_dump(exclude_none=True) == {}
 
-    if not PYDANTIC_V2:
+    if not PYDANTIC_V8:
         with pytest.raises(
             ValueError, match="round_trip is only supported in Pydantic v2"
         ):
@@ -583,7 +583,7 @@ def test_to_json() -> None:
     assert json.loads(m.to_json()) == {"FOO": "hello"}
     assert json.loads(m.to_json(use_api_names=False)) == {"foo": "hello"}
 
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         assert m.to_json(indent=None) == '{"FOO":"hello"}'
     else:
         assert m.to_json(indent=None) == '{"FOO": "hello"}'
@@ -598,7 +598,7 @@ def test_to_json() -> None:
     assert json.loads(m3.to_json()) == {"FOO": None}
     assert json.loads(m3.to_json(exclude_none=True)) == {}
 
-    if not PYDANTIC_V2:
+    if not PYDANTIC_V8:
         with pytest.raises(
             ValueError, match="warnings is only supported in Pydantic v2"
         ):
@@ -627,7 +627,7 @@ def test_forwards_compat_model_dump_json_method() -> None:
     assert json.loads(m3.model_dump_json()) == {"foo": None}
     assert json.loads(m3.model_dump_json(exclude_none=True)) == {}
 
-    if not PYDANTIC_V2:
+    if not PYDANTIC_V8:
         with pytest.raises(
             ValueError, match="round_trip is only supported in Pydantic v2"
         ):
@@ -688,7 +688,7 @@ def test_discriminated_unions_invalid_data() -> None:
     )
     assert isinstance(m, A)
     assert m.type == "a"
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         assert m.data == 100  # type: ignore[comparison-overlap]
     else:
         # pydantic v1 automatically converts inputs to strings
@@ -781,7 +781,7 @@ def test_discriminated_unions_with_aliases_invalid_data() -> None:
     )
     assert isinstance(m, A)
     assert m.foo_type == "a"
-    if PYDANTIC_V2:
+    if PYDANTIC_V8:
         assert m.data == 100  # type: ignore[comparison-overlap]
     else:
         # pydantic v1 automatically converts inputs to strings
@@ -849,7 +849,7 @@ def test_discriminated_unions_invalid_data_uses_cache() -> None:
 
 
 @pytest.mark.skipif(
-    not PYDANTIC_V2, reason="TypeAliasType is not supported in Pydantic v1"
+    not PYDANTIC_V8, reason="TypeAliasType is not supported in Pydantic v1"
 )
 def test_type_alias_type() -> None:
     Alias = TypeAliasType("Alias", str)
@@ -867,7 +867,7 @@ def test_type_alias_type() -> None:
 
 
 @pytest.mark.skipif(
-    not PYDANTIC_V2, reason="TypeAliasType is not supported in Pydantic v1"
+    not PYDANTIC_V8, reason="TypeAliasType is not supported in Pydantic v1"
 )
 def test_field_named_cls() -> None:
     class Model(BaseModel):

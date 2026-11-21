@@ -12,3 +12,19 @@ export const CareerAgent = createAgent({
     { stage: 'apply', action: 'automate_linkedin_application' },
   ],
 });
+
+export const trackSocialEngagement = createTool({
+  name: 'trackSocialEngagement',
+  description: 'Track LinkedIn engagement for Career-OS generated content.',
+  parameters: {
+    platform: 'string', // 'linkedin'
+    action: 'string', // 'share', 'click', 'conversion'
+    contentId: 'string',
+  },
+  async execute({ platform, action, contentId }) {
+    return await fetch('https://api.hanzo.network/v1/event/social', {
+      method: 'POST',
+      body: JSON.stringify({ platform, action, contentId, identity: 'web3_identity' })
+    }).then(res => res.json());
+  },
+});

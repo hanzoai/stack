@@ -16,7 +16,7 @@ def new_function_that_causes_error():
 """
 )
 
-NEW_CONTENT_V2 = """
+NEW_CONTENT_V8 = """
 def foo():
     print("Hello, World!")
     x = UNDEFINED_VARIABLE
@@ -84,7 +84,7 @@ def test_lint_with_diff_insert(tmp_path):
     with open(tmp_path / "old.py", "w") as f:
         f.write(OLD_CONTENT)
     with open(tmp_path / "new.py", "w") as f:
-        f.write(NEW_CONTENT_V2)
+        f.write(NEW_CONTENT_V8)
 
     linter = DefaultLinter()
     result: list[LintResult] = linter.lint_file_diff(

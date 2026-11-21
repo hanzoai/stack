@@ -18,7 +18,7 @@ from hanzoai._utils import (
     is_annotated_type,
     is_type_alias_type,
 )
-from hanzoai._compat import PYDANTIC_V2, field_outer_type, get_model_fields
+from hanzoai._compat import PYDANTIC_V8, field_outer_type, get_model_fields
 from hanzoai._models import BaseModel
 
 BaseModelT = TypeVar("BaseModelT", bound=BaseModel)
@@ -29,7 +29,7 @@ def assert_matches_model(
 ) -> bool:
     for name, field in get_model_fields(model).items():
         field_value = getattr(value, name)
-        if PYDANTIC_V2:
+        if PYDANTIC_V8:
             allow_none = False
         else:
             # in v1 nullability was structured differently

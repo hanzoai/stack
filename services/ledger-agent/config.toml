@@ -1,0 +1,7 @@
+[service]
+name = "ledger-agent"
+type = "platform"
+storage = "datastore"
+auth = "iam"
+engine = "enabled"
+mcp = "enabled"

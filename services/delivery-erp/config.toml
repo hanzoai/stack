@@ -1,0 +1,5 @@
+[service]
+name = "delivery-erp"
+type = "platform"
+storage = "datastore"
+auth = "iam"

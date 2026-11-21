@@ -1,0 +1,5 @@
+[service]
+name = "trade-crm"
+type = "platform"
+storage = "datastore"
+auth = "iam"

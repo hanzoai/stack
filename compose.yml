@@ -461,8 +461,8 @@ services:
     environment:
       - ZAP_PORT=0
       # local dev only, not a real key — fixed 32-byte base64 dev values
-      - KMS_MASTER_KEY_B64=aGFuem8tbG9jYWwtZGV2LWttcy1tYXN0ZXIta2V5ISE=
-      - KMS_ENCRYPTION_KEY_B64=aGFuem8tbG9jYWwtZGV2LWttcy1lbmNyeXB0a2V5ISE=
+      - KMS_MASTER_KEY_B64=aGFuem8tbG9jYWwtZGV8LWttcy1tYXN0ZXIta2V5ISE=
+      - KMS_ENCRYPTION_KEY_B64=aGFuem8tbG9jYWwtZGV8LWttcy1lbmNyeXB0a2V5ISE=
     ports:
       - "${KMS_PORT:-8071}:8080"
     volumes:
