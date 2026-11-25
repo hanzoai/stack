@@ -46,7 +46,7 @@ See [`compose.yml`](./compose.yml) for the full list. Per-environment overrides 
 
 ## Reference applications
 
-Canonical application code belongs in [`hanzoai/cloud`](https://github.com/hanzoai/cloud), hosted by Cloud's framework, Base, IAM, MCP and private inference. FanClub AI migration is tracked by [Cloud issue #57](https://github.com/hanzoai/cloud/issues/57). The previous standalone `examples/fanclub-ai` Node server is being retired after the Cloud migration is verified.
+Canonical application code belongs in [`hanzoai/cloud`](https://github.com/hanzoai/cloud), hosted natively by Cloud's Base, IAM, Tasks, MCP, and AI subsystems (`CLOUD_ENABLE_STAGED=fanclub`, `/fanclub/index.html`, shipped in [`hanzoai/cloud#69`](https://github.com/hanzoai/cloud/pull/69) / [`hanzoai/cloud#57`](https://github.com/hanzoai/cloud/issues/57)). The legacy standalone `examples/fanclub-ai` Node/SQLite demo has been retired from this quickstart repo.
 
 ## Configuration
 
